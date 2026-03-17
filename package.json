@@ -1,6 +1,6 @@
 {
   "name": "code-time-monitor",
-  "version": "1.0.6",
+  "version": "2.0.0",
   "description": "一个基于 Node.js 的编码时间监控工具，帮助开发者管理编码时间，避免过度编码",
   "main": "src/app.js",
   "type": "module",
