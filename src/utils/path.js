@@ -30,8 +30,7 @@ export const getPackageRoot = () => {
 };
 
 export const getDataDir = () => {
-  const homeDir = os.homedir();
-  return path.join(homeDir, '.code-time-monitor');
+  return path.join(getPackageRoot(), 'data');
 };
 
 export const getConfigPath = () => {
@@ -43,7 +42,7 @@ export const getStatsPath = () => {
 };
 
 export const getLogDir = () => {
-  return path.join(getDataDir(), 'logs');
+  return path.join(getPackageRoot(), 'logs');
 };
 
 export const getTemplatesDir = () => {

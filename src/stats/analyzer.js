@@ -6,41 +6,90 @@ export class StatsAnalyzer {
     this.persistence = persistence;
   }
 
-  async getTodaySummary() {
+  async getTodaySummary(activeSessions = []) {
     const todayStats = await this.persistence.getTodayStats();
-    
-    const totalSessions = todayStats.sessions.length;
+
+    // 计算活跃会话的额外时间
+    let additionalMinutes = 0;
+    const additionalByProject = {};
+    const additionalSessions = [];
+
+    for (const session of activeSessions) {
+      const durationMinutes = session.getDurationMinutes();
+      if (durationMinutes > 0) {
+        additionalMinutes += durationMinutes;
+        additionalSessions.push({
+          id: session.id,
+          projectName: session.projectName,
+          durationMinutes,
+          isActive: true
+        });
+
+        if (!additionalByProject[session.projectName]) {
+          additionalByProject[session.projectName] = 0;
+        }
+        additionalByProject[session.projectName] += durationMinutes;
+      }
+    }
+
+    const totalMinutes = todayStats.totalMinutes + additionalMinutes;
+    const totalSessions = todayStats.sessions.length + additionalSessions.length;
     const avgSessionDuration = totalSessions > 0
-      ? Math.round(todayStats.totalMinutes / totalSessions)
+      ? Math.round(totalMinutes / totalSessions)
       : 0;
-    
-    const intensity = TimeCalculator.calculateCodingIntensity(todayStats.sessions);
+
+    // 合并项目统计
+    const byProject = { ...todayStats.byProject };
+    for (const [project, minutes] of Object.entries(additionalByProject)) {
+      if (!byProject[project]) {
+        byProject[project] = 0;
+      }
+      byProject[project] += minutes;
+    }
+
+    // 合并所有会话用于计算强度
+    const allSessions = [...todayStats.sessions, ...additionalSessions];
+    const intensity = TimeCalculator.calculateCodingIntensity(allSessions);
     const intensityLabel = TimeCalculator.getIntensityLabel(intensity);
 
     return {
       date: todayStats.date,
-      totalMinutes: todayStats.totalMinutes,
-      totalHours: Math.round(todayStats.totalMinutes / 60 * 10) / 10,
+      totalMinutes,
+      totalHours: Math.round(totalMinutes / 60 * 10) / 10,
       totalSessions,
       avgSessionDuration,
       intensity,
       intensityLabel,
-      byProject: todayStats.byProject || {},
-      hourlyDistribution: todayStats.hourlyDistribution || {}
+      byProject,
+      hourlyDistribution: todayStats.hourlyDistribution || {},
+      activeSessions: additionalSessions,
+      hasActiveSessions: additionalSessions.length > 0
     };
   }
 
-  async getWeekSummary() {
+  async getWeekSummary(activeSessions = []) {
     const history = await this.persistence.getHistoryStats(7);
-    
-    const totalMinutes = history.reduce((sum, day) => sum + day.totalMinutes, 0);
-    const totalSessions = history.reduce((sum, day) => sum + day.sessions.length, 0);
-    
+
+    // 计算活跃会话的额外时间
+    let additionalMinutes = 0;
+    let additionalSessions = 0;
+
+    for (const session of activeSessions) {
+      const durationMinutes = session.getDurationMinutes();
+      if (durationMinutes > 0) {
+        additionalMinutes += durationMinutes;
+        additionalSessions++;
+      }
+    }
+
+    const totalMinutes = history.reduce((sum, day) => sum + day.totalMinutes, 0) + additionalMinutes;
+    const totalSessions = history.reduce((sum, day) => sum + day.sessions.length, 0) + additionalSessions;
+
     const avgDailyMinutes = Math.round(totalMinutes / 7);
     const avgDailyHours = Math.round(avgDailyMinutes / 60 * 10) / 10;
-    
+
     const workingDays = history.filter(day => day.totalMinutes > 0).length;
-    
+
     return {
       totalMinutes,
       totalHours: Math.round(totalMinutes / 60 * 10) / 10,
@@ -48,23 +97,36 @@ export class StatsAnalyzer {
       avgDailyMinutes,
       avgDailyHours,
       workingDays,
-      dailyStats: history
+      dailyStats: history,
+      hasActiveSessions: additionalSessions > 0
     };
   }
 
-  async getMonthSummary() {
+  async getMonthSummary(activeSessions = []) {
     const now = dayjs();
     const daysInMonth = now.daysInMonth();
     const history = await this.persistence.getHistoryStats(daysInMonth);
-    
-    const totalMinutes = history.reduce((sum, day) => sum + day.totalMinutes, 0);
-    const totalSessions = history.reduce((sum, day) => sum + day.sessions.length, 0);
-    
+
+    // 计算活跃会话的额外时间
+    let additionalMinutes = 0;
+    let additionalSessions = 0;
+
+    for (const session of activeSessions) {
+      const durationMinutes = session.getDurationMinutes();
+      if (durationMinutes > 0) {
+        additionalMinutes += durationMinutes;
+        additionalSessions++;
+      }
+    }
+
+    const totalMinutes = history.reduce((sum, day) => sum + day.totalMinutes, 0) + additionalMinutes;
+    const totalSessions = history.reduce((sum, day) => sum + day.sessions.length, 0) + additionalSessions;
+
     const avgDailyMinutes = Math.round(totalMinutes / daysInMonth);
     const avgDailyHours = Math.round(avgDailyMinutes / 60 * 10) / 10;
-    
+
     const workingDays = history.filter(day => day.totalMinutes > 0).length;
-    
+
     return {
       totalMinutes,
       totalHours: Math.round(totalMinutes / 60 * 10) / 10,
@@ -72,11 +134,12 @@ export class StatsAnalyzer {
       avgDailyMinutes,
       avgDailyHours,
       workingDays,
-      dailyStats: history
+      dailyStats: history,
+      hasActiveSessions: additionalSessions > 0
     };
   }
 
-  async getProjectSummary(projectName) {
+  async getProjectSummary(projectName, activeSessions = []) {
     const history = await this.persistence.getHistoryStats(30);
     
     let totalMinutes = 0;
@@ -98,6 +161,23 @@ export class StatsAnalyzer {
       }
     }
     
+    // 计算活跃会话的额外时间
+    let additionalMinutes = 0;
+    let additionalSessions = 0;
+
+    for (const session of activeSessions) {
+      if (session.projectName === projectName) {
+        const durationMinutes = session.getDurationMinutes();
+        if (durationMinutes > 0) {
+          additionalMinutes += durationMinutes;
+          additionalSessions++;
+        }
+      }
+    }
+
+    totalMinutes += additionalMinutes;
+    totalSessions += additionalSessions;
+    
     return {
       projectName,
       totalMinutes,
@@ -106,7 +186,8 @@ export class StatsAnalyzer {
       avgSessionDuration: totalSessions > 0
         ? Math.round(totalMinutes / totalSessions)
         : 0,
-      dailyStats
+      dailyStats,
+      hasActiveSessions: additionalSessions > 0
     };
   }
 

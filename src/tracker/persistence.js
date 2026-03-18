@@ -184,6 +184,41 @@ export class Persistence {
     return result.reverse();
   }
 
+  async getDaySessions(dateStr) {
+    const stats = await this.loadStats();
+    
+    // 如果是今天，返回今天的会话
+    if (dateStr === stats.today.date) {
+      return {
+        date: stats.today.date,
+        totalMinutes: stats.today.totalMinutes,
+        sessions: stats.today.sessions,
+        byProject: stats.today.byProject,
+        hourlyDistribution: stats.today.hourlyDistribution
+      };
+    }
+    
+    // 否则返回历史记录中的数据
+    if (stats.history[dateStr]) {
+      return {
+        date: dateStr,
+        totalMinutes: stats.history[dateStr].totalMinutes,
+        sessions: stats.history[dateStr].sessions,
+        byProject: stats.history[dateStr].byProject || {},
+        hourlyDistribution: stats.history[dateStr].hourlyDistribution || {}
+      };
+    }
+    
+    // 没有数据
+    return {
+      date: dateStr,
+      totalMinutes: 0,
+      sessions: [],
+      byProject: {},
+      hourlyDistribution: {}
+    };
+  }
+
   async updateNotificationTime(type, timestamp) {
     const stats = await this.loadStats();
     

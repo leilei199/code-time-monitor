@@ -141,6 +141,37 @@ export class CLICommands {
         persistence
       );
     }
+    
+    // 尝试读取活跃会话信息
+    this.activeSessions = await this.loadActiveSessions();
+  }
+
+  async loadActiveSessions() {
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { getDataDir } = await import('../utils/path.js');
+      const activeSessionsPath = path.join(getDataDir(), 'active-sessions.json');
+
+      const data = await fs.readFile(activeSessionsPath, 'utf-8');
+      const activeSessionsData = JSON.parse(data);
+
+      // 检查数据是否过期（超过5分钟）
+      const dataAge = Date.now() - activeSessionsData.timestamp;
+      if (dataAge > 5 * 60 * 1000) {
+        logger.debug('活跃会话数据已过期');
+        return [];
+      }
+
+      // 使用 Session.fromData 重建 Session 对象
+      const { Session } = await import('../tracker/session.js');
+      return activeSessionsData.sessions.map(sessionData => Session.fromData(sessionData));
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        logger.debug('读取活跃会话信息失败:', error.message);
+      }
+      return [];
+    }
   }
 
   async status() {
@@ -153,10 +184,32 @@ export class CLICommands {
     
     CLIUI.title('📊 编码时间监控工具 - 状态');
     
+    // 检查监控服务状态
+    try {
+      const { execSync } = await import('child_process');
+      const pm2Cmd = await this.getPm2Command();
+      const statusOutput = execSync(`${pm2Cmd} status`, { encoding: 'utf-8' });
+      
+      if (statusOutput.includes('code-time-monitor') && statusOutput.includes('online')) {
+        console.log('监控服务: ✅ 运行中');
+      } else if (statusOutput.includes('code-time-monitor') && statusOutput.includes('stopped')) {
+        console.log('监控服务: ⏸️  已停止');
+      } else if (statusOutput.includes('code-time-monitor') && statusOutput.includes('errored')) {
+        console.log('监控服务: ❌ 错误');
+      } else {
+        console.log('监控服务: ⚠️  未运行');
+      }
+    } catch (error) {
+      console.log('监控服务: ⚠️  无法获取状态');
+      console.log('  提示: 使用 "ctm start" 启动监控服务');
+    }
+    
+    console.log('');
+    
     console.log('项目配置:');
     if (projects.length === 0) {
       console.log('  暂无配置的项目');
-      console.log('  使用 "ctm add-project" 添加项目');
+      console.log('  使用 "ctm config add" 添加项目');
     } else {
       projects.forEach(project => {
         const status = project.enabled ? '✓ 监控中' : '✗ 已禁用';
@@ -165,10 +218,28 @@ export class CLICommands {
       });
     }
     
+    // 显示活跃会话
+    if (this.activeSessions && this.activeSessions.length > 0) {
+      console.log('\n活跃会话:');
+      for (const session of this.activeSessions) {
+        console.log(`  • ${session.projectName}: 进行中 (${session.getDurationMinutes()}分钟)`);
+        console.log(`    文件变更: ${session.fileChanges}次`);
+      }
+    }
+
+    // 计算包含活跃会话的总时长
+    let totalMinutes = stats.totalMinutes;
+    if (this.activeSessions && this.activeSessions.length > 0) {
+      totalMinutes += this.activeSessions.reduce((sum, session) => sum + session.getDurationMinutes(), 0);
+    }
+    
     console.log('\n今日统计:');
     const { TimeCalculator } = await import('../tracker/calculator.js');
-    console.log(`  总时长: ${TimeCalculator.formatDuration(stats.totalMinutes)}`);
+    console.log(`  总时长: ${TimeCalculator.formatDuration(totalMinutes)}`);
     console.log(`  会话数: ${stats.sessions.length}`);
+    if (this.activeSessions && this.activeSessions.length > 0) {
+      console.log(`  活跃会话: ${this.activeSessions.length}个`);
+    }
     
     if (Object.keys(stats.byProject).length > 0) {
       console.log('\n按项目:');
@@ -213,6 +284,78 @@ export class CLICommands {
     }
   }
 
+  async sessions(options = {}) {
+    await this.init();
+    
+    const { Persistence } = await import('../tracker/persistence.js');
+    const persistence = new Persistence(this.configManager);
+    
+    // 确定日期
+    let dateStr;
+    if (options.date) {
+      dateStr = options.date;
+    } else {
+      dateStr = new Date().toISOString().split('T')[0];
+    }
+    
+    const dayData = await persistence.getDaySessions(dateStr);
+    
+    CLIUI.title(`📅 ${dateStr} 会话详情`);
+    
+    if (dayData.sessions.length === 0) {
+      console.log('该日期没有会话记录');
+      console.log('');
+      return;
+    }
+    
+    console.log(`总时长: ${this.formatTime(dayData.totalMinutes)}`);
+    console.log(`会话数: ${dayData.sessions.length}`);
+    console.log('');
+    
+    // 按时间排序
+    const sortedSessions = [...dayData.sessions].sort((a, b) => {
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+    
+    // 显示每个会话详情
+    sortedSessions.forEach((session, index) => {
+      const startTime = new Date(session.startTime);
+      const endTime = new Date(session.endTime);
+      const startStr = startTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const endStr = endTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      
+      console.log(`${index + 1}. ${session.projectName} [${session.id}]`);
+      console.log(`   时间: ${startStr} - ${endStr} (${session.durationMinutes}分钟)`);
+      console.log(`   文件变更: ${session.fileChanges}次`);
+      
+      if (session.filesTouched && session.filesTouched.length > 0) {
+        const filesCount = session.filesTouched.length;
+        console.log(`   涉及文件: ${filesCount}个`);
+        if (!options.simple && filesCount <= 10) {
+          session.filesTouched.forEach(file => {
+            console.log(`     • ${file}`);
+          });
+        } else if (!options.simple && filesCount > 10) {
+          session.filesTouched.slice(0, 10).forEach(file => {
+            console.log(`     • ${file}`);
+          });
+          console.log(`     ... 还有 ${filesCount - 10} 个文件`);
+        }
+      }
+      console.log('');
+    });
+    
+    // 按项目汇总
+    if (Object.keys(dayData.byProject).length > 0) {
+      console.log('按项目汇总:');
+      for (const [project, minutes] of Object.entries(dayData.byProject)) {
+        const projectSessions = dayData.sessions.filter(s => s.projectName === project);
+        console.log(`  • ${project}: ${this.formatTime(minutes)} (${projectSessions.length}个会话)`);
+      }
+      console.log('');
+    }
+  }
+
   async sendNotification(title, message) {
     try {
       if (!this.notificationSystem) {
@@ -253,6 +396,80 @@ export class CLICommands {
     
     const wizard = new ConfigWizard(this.configManager);
     await wizard.run();
+  }
+
+  async startService() {
+    await this.init();
+    
+    const projects = this.configManager.getProjects();
+    const enabledProjects = this.configManager.getProjects(true);
+    
+    console.log('\n🚀 启动编码时间监控工具...\n');
+    
+    // 检查是否有启用的项目
+    if (enabledProjects.length === 0) {
+      if (projects.length === 0) {
+        console.log('⚠️  还没有配置任何项目\n');
+        console.log('需要先添加项目才能启动监控服务\n');
+        
+        const inquirer = await import('inquirer');
+        const { addNow } = await inquirer.default.prompt([
+          {
+            type: 'confirm',
+            name: 'addNow',
+            message: '是否现在添加项目？',
+            default: true
+          }
+        ]);
+        
+        if (addNow) {
+          await this.addProject();
+          
+          // 重新加载配置
+          await this.configManager.load();
+          const newEnabledProjects = this.configManager.getProjects(true);
+          
+          if (newEnabledProjects.length === 0) {
+            console.log('\n没有启用的项目，无法启动监控服务');
+            return;
+          }
+        } else {
+          console.log('\n你可以稍后使用以下命令添加项目：');
+          console.log('  ctm config add\n');
+          return;
+        }
+      } else {
+        console.log('⚠️  没有启用的项目\n');
+        console.log('当前项目：');
+        projects.forEach(project => {
+          const status = project.enabled ? '✓' : '✗';
+          console.log(`  ${status} ${project.name}`);
+        });
+        console.log('\n请先启用项目：');
+        console.log('  ctm config edit\n');
+        return;
+      }
+    }
+    
+    // 显示要监控的项目
+    console.log('将要监控的项目：');
+    enabledProjects.forEach(project => {
+      console.log(`  • ${project.name}`);
+    });
+    console.log('');
+    
+    try {
+      await this.start();
+      console.log('\n✅ 监控服务已启动！\n');
+      console.log('使用以下命令查看状态：');
+      console.log('  ctm show status\n');
+    } catch (error) {
+      console.error('\n❌ 启动失败:', error.message);
+      console.log('\n请检查：');
+      console.log('  1. 项目路径是否存在');
+      console.log('  2. 查看日志: ctm service logs\n');
+      throw error;
+    }
   }
 
   async config(action) {
@@ -308,6 +525,86 @@ export class CLICommands {
     }
   }
 
+  async purgeAll() {
+    await this.init();
+    
+    const inquirer = await import('inquirer');
+    const { confirm } = await inquirer.default.prompt([
+      {
+        type: 'confirm',
+        name: 'confirm',
+        message: '⚠️  警告：此操作将执行以下操作：\n' +
+                  '  1. 停止所有监控服务\n' +
+                  '  2. 删除所有统计数据\n' +
+                  '  3. 重置所有配置（包括项目配置）\n' +
+                  '  4. 删除所有项目\n\n' +
+                  '确定要执行吗？此操作不可恢复！',
+        default: false
+      }
+    ]);
+    
+    if (!confirm) {
+      CLIUI.info('操作已取消');
+      return;
+    }
+    
+    console.log('\n🗑️  开始清理所有数据...\n');
+    
+    try {
+      // 1. 停止监控服务
+      console.log('1. 停止监控服务...');
+      try {
+        await this.stop();
+      } catch (error) {
+        console.log('   ⚠️  监控服务未运行或停止失败');
+      }
+      
+      // 2. 重置配置（删除所有项目）
+      console.log('2. 重置配置...');
+      this.configManager.reset();
+      await this.configManager.save();
+      console.log('   ✓ 配置已重置');
+      
+      // 3. 重置统计数据
+      console.log('3. 重置统计数据...');
+      const { Persistence } = await import('../tracker/persistence.js');
+      const persistence = new Persistence(this.configManager);
+      await persistence.resetStats();
+      console.log('   ✓ 统计数据已重置');
+      
+      // 4. 清理活跃会话文件
+      console.log('4. 清理活跃会话文件...');
+      try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const { getDataDir } = await import('../utils/path.js');
+        const activeSessionsPath = path.join(getDataDir(), 'active-sessions.json');
+        await fs.unlink(activeSessionsPath).catch(() => {});
+        console.log('   ✓ 活跃会话文件已清理');
+      } catch (error) {
+        console.log('   ⚠️  清理活跃会话文件失败');
+      }
+      
+      console.log('\n✅ 所有数据已清理完成！\n');
+      console.log('下一步：');
+      console.log('  1. 重新添加项目：');
+      console.log('     ctm config add');
+      console.log('');
+      console.log('  2. 启动监控服务：');
+      console.log('     ctm start');
+      console.log('');
+      
+    } catch (error) {
+      console.error('\n❌ 清理失败:', error.message);
+      console.error('\n请手动检查并清理以下文件：');
+      console.error('  - data/config.json');
+      console.error('  - data/stats.json');
+      console.error('  - data/active-sessions.json');
+      console.error('');
+      process.exit(1);
+    }
+  }
+
   async start() {
     await this.checkPm2();
     const pm2Cmd = await this.getPm2Command();
@@ -349,8 +646,6 @@ export class CLICommands {
 
       console.log('🚀 启动监控服务...');
       execSync(`${pm2Cmd} start ${tempConfigPath}`, { stdio: 'inherit' });
-      console.log('\n✅ 监控服务已启动');
-      console.log('使用 "ctm status" 查看状态');
 
       // 清理临时文件
       setTimeout(() => {
@@ -395,18 +690,36 @@ export class CLICommands {
   }
 
   async logs() {
-    await this.checkPm2();
-    const pm2Cmd = await this.getPm2Command();
     const { execSync } = await import('child_process');
+    const { getLogDir } = await import('../utils/path.js');
+    const logDir = getLogDir();
+    const combinedLogPath = `${logDir}/combined.log`;
+    const errorLogPath = `${logDir}/error.log`;
+    
+    console.log('\n📋 查看日志文件 (按 Ctrl+C 退出)\n');
+    
     try {
-      console.log('📋 查看监控服务日志 (按 Ctrl+C 退出)\n');
-      execSync(`${pm2Cmd} logs code-time-monitor`, { stdio: 'inherit' });
+      // 使用 tail -f 实时查看 combined.log
+      execSync(`tail -f ${combinedLogPath}`, { stdio: 'inherit' });
     } catch (error) {
       if (error.signal === 'SIGINT') {
         console.log('\n已退出日志查看');
       } else {
-        console.error('\n❌ 查看日志失败:', error.message);
-        process.exit(1);
+        // 如果 combined.log 不存在，尝试查看 error.log
+        try {
+          execSync(`tail -f ${errorLogPath}`, { stdio: 'inherit' });
+        } catch (error2) {
+          if (error2.signal === 'SIGINT') {
+            console.log('\n已退出日志查看');
+          } else {
+            console.error('\n❌ 查看日志失败，日志文件可能不存在');
+            console.log(`\n日志目录: ${logDir}`);
+            console.log('你可以直接查看日志文件:');
+            console.log(`  cat ${combinedLogPath}`);
+            console.log(`  tail -f ${combinedLogPath}\n`);
+            process.exit(1);
+          }
+        }
       }
     }
   }

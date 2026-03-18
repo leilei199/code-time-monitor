@@ -1,252 +1,380 @@
-# 编码时间监控工具
+# Code Time Monitor (ctm)
 
-一个基于 Node.js 的编码时间监控工具，帮助开发者管理编码时间，避免过度编码，保持健康的工作生活平衡。
+编码时间监控工具 - 帮助开发者智能管理编码时间，保持健康的工作生活平衡
 
-## 🎯 主要功能
+## ✨ 特性
 
-### 📊 核心功能
-- **文件监控** - 实时监控代码文件变更
-- **会话跟踪** - 自动记录编码会话
-- **时间统计** - 精确计算编码时长
-- **智能提醒** - 多种提醒规则保护健康
-- **数据持久化** - 可靠的数据存储
-- **状态通知** - 定期推送编码状态
+### 核心功能
+- **实时统计** - 显示包含活跃会话的实时编码时长
+- **会话详情** - 查看每次会话的开始时间、结束时间、文件变更等详细信息
+- **智能启动** - 一键启动，自动检测并提示添加项目
+- **黑名单模式** - 支持 .gitignore，智能排除不需要监控的文件
+- **灵活配置** - 项目级别的监控范围和模式配置
+- **健康提醒** - 多种提醒规则保护健康（时长提醒、深夜提醒、休息提醒）
 
-### 🔔 通知系统
-- **状态更新通知** - 每60分钟推送编码状态
-- **每日时长提醒** - 4小时/6小时/8小时分级提醒
-- **深夜编码提醒** - 23:00-07:00 期间提醒
-- **休息提醒** - 连续编码2小时提醒
-- **会话结束通知** - 显示编码时长和文件变更数
+### 新增功能
+- **语义化会话ID** - 每个会话都有独特的 ID（格式：`项目名_日期时间_随机标识`）
+- **定时会话日志** - 每1分钟记录活跃会话状态
+- **一键重置** - 清空所有数据和配置，重新开始
+- **扩展监控范围** - 默认支持 .md 和 .json 文件监控
+- **精确日志** - 所有日志都包含时间戳
 
 ## 🚀 快速开始
 
-### 安装依赖
+### 安装
 ```bash
-npm install
+npm install -g code-time-monitor
 ```
 
-### 初始化配置
+### 初始化
 ```bash
-npm run setup
+# 首次使用会自动引导配置
+ctm start
 ```
 
-### 添加监控项目
-```bash
-npm run add-project
-```
-
-### 启动监控服务
-```bash
-npm run pm2:start
-```
-
-## 📖 使用说明
-
-### 基本命令
-
-#### 启动和停止
+### 基本使用
 ```bash
 # 启动监控服务
-npm run pm2:start
+ctm start
 
-# 停止监控服务
-npm run pm2:stop
+# 查看状态（包含活跃会话）
+ctm show status
 
-# 重启监控服务
-npm run pm2:restart
+# 查看今日统计（实时）
+ctm show stats --today
 
-# 查看服务状态
-npm run pm2:status
+# 查看会话详情
+ctm show sessions
 ```
 
-#### 查看统计
+## 📖 命令参考
+
+### 服务管理
+
+#### 一键启动
 ```bash
-# 查看当前状态
-npm run status
-
-# 查看今日统计
-npm run stats --today
-
-# 查看本周统计
-npm run stats --week
-
-# 查看指定项目统计
-npm run stats --project <项目名>
+ctm start
 ```
+- 自动检查项目配置
+- 如果没有项目，提示添加
+- 显示将要监控的项目列表
 
-#### 配置管理
+#### 停止服务
 ```bash
-# 查看配置
-npm run config --show
-
-# 编辑配置文件
-npm run config --edit
-
-# 重置配置
-npm run config --reset
+ctm stop
 ```
 
-#### 项目管理
+#### 重启服务
 ```bash
-# 添加新项目
-npm run add-project
-
-# 重置统计数据
-npm run reset-stats
+ctm restart
 ```
 
-### PM2 高级命令
-
+#### 查看日志
 ```bash
-# 设置开机自启动
-npm run pm2:startup
-
-# 查看日志
-npm run pm2:logs
-
-# 删除进程
-npm run pm2:delete
+ctm logs
 ```
+实时查看服务日志（按 Ctrl+C 退出）
+
+#### 开机自启
+```bash
+ctm startup
+```
+
+#### 删除服务
+```bash
+ctm delete
+```
+
+### 状态和统计
+
+#### 查看运行状态
+```bash
+ctm show status
+```
+显示内容：
+- 监控服务状态
+- 项目配置列表
+- 活跃会话（进行中的会话）
+- 今日统计（包含活跃会话时长）
+
+#### 查看编码统计
+```bash
+# 今日统计（默认）
+ctm show stats
+
+# 今日统计
+ctm show stats --today
+
+# 本周统计
+ctm show stats --week
+
+# 指定项目统计
+ctm show stats --project <项目名>
+
+# 发送统计通知
+ctm show stats --notify
+```
+
+#### 查看会话详情
+```bash
+# 查看今日会话
+ctm show sessions
+
+# 查看指定日期会话
+ctm show sessions --date 2026-03-18
+
+# 简化显示（不显示文件列表）
+ctm show sessions --simple
+```
+
+会话详情包括：
+- 会话ID（语义化格式）
+- 开始和结束时间
+- 编码时长
+- 文件变更次数
+- 涉及的文件列表
+
+### 配置管理
+
+#### 添加项目
+```bash
+ctm config add
+```
+交互式添加新项目：
+- 项目名称
+- 项目路径
+- 是否使用 .gitignore
+
+#### 查看配置
+```bash
+ctm config show
+```
+
+#### 编辑配置
+```bash
+ctm config edit
+```
+在默认编辑器中打开配置文件
+
+#### 重置配置
+```bash
+ctm config reset
+```
+恢复为默认配置
+
+### 数据管理
+
+#### 重置统计数据
+```bash
+ctm data reset
+```
+清空所有统计数据，保留项目配置
+
+#### 一键重置
+```bash
+ctm reset
+```
+完整重置所有内容：
+1. 停止监控服务
+2. 删除所有统计数据
+3. 重置配置（包括所有项目）
+4. 清理临时文件
+
+⚠️ 此操作不可恢复！
+
+### 其他命令
+
+#### 查看版本
+```bash
+ctm version
+```
+
+### 已废弃的命令
+以下命令已废弃，但仍然可以使用（会提示新命令）：
+- `ctm status` → `ctm show status`
+- `ctm add-project` → `ctm config add`
+- `ctm reset-stats` → `ctm data reset`
 
 ## ⚙️ 配置说明
 
 ### 配置文件位置
-`~/.code-time-monitor/config.json`
+`data/config.json`
 
-### 主要配置项
-
-#### 项目配置
+### 全局配置示例
 ```json
 {
-  "projects": [
-    {
-      "id": "uuid",
-      "name": "项目名称",
-      "path": "/绝对路径/到项目",
-      "enabled": true
-    }
-  ]
-}
-```
-
-#### 提醒阈值
-```json
-{
+  "version": "2.0.0",
+  "monitoring": {
+    "idleTimeout": 1800,
+    "debounceDelay": 1000,
+    "useBlacklist": true,
+    "fileExtensions": [
+      ".js", ".ts", ".jsx", ".tsx", ".vue", ".svelte",
+      ".py", ".java", ".go", ".rs", ".cpp", ".h", ".c",
+      ".css", ".scss", ".less", ".html", ".json", ".md"
+    ],
+    "ignoredDirs": [
+      "node_modules", ".git", "dist", "build", "coverage", "logs", ".idea"
+    ]
+  },
   "limits": {
-    "dailyWarning": 4,    // 4小时轻度提醒
-    "dailyAlert": 6,      // 6小时中度提醒
-    "dailyMax": 8         // 8小时严重警告
-  }
-}
-```
-
-#### 深夜模式
-```json
-{
+    "dailyWarning": 4,
+    "dailyAlert": 6,
+    "dailyMax": 8
+  },
   "nightMode": {
     "enabled": true,
-    "startTime": "23:00",  // 开始时间
-    "endTime": "07:00"     // 结束时间
-  }
-}
-```
-
-#### 休息提醒
-```json
-{
+    "startTime": "23:00",
+    "endTime": "07:00"
+  },
   "breakReminder": {
     "enabled": true,
-    "intervalMinutes": 120  // 连续编码120分钟后提醒
+    "intervalMinutes": 120
+  },
+  "notifications": {
+    "enabled": true,
+    "sound": true
   }
 }
 ```
 
-#### 通知设置
+### 项目配置示例
 ```json
 {
-  "notifications": {
-    "enabled": true,  // 启用通知
-    "sound": true     // 启用声音
-  }
+  "id": "uuid",
+  "name": "my-project",
+  "path": "/path/to/project",
+  "enabled": true,
+  "monitoring": {
+    "useBlacklist": true,
+    "fileExtensions": [".js", ".ts"],
+    "ignoredDirs": ["node_modules", "build"]
+  },
+  "ignoredDirs": ["logs", "temp"]
 }
 ```
 
-#### 文件监控设置
+### 配置说明
+
+#### 监控模式
+
+**黑名单模式** (`useBlacklist: true`)（推荐）：
+- 默认监控所有文件（符合文件扩展名的）
+- 排除 .gitignore 中的文件
+- 排除临时文件和系统文件
+- 排除 ignoredDirs 中的目录
+
+**白名单模式** (`useBlacklist: false`)：
+- 只监控指定扩展名的文件
+- 更精确但需要手动配置
+
+#### 项目级配置优先级
+项目的监控配置可以覆盖全局配置：
 ```json
 {
   "monitoring": {
-    "fileExtensions": [".js", ".ts", ".jsx", ".tsx", ".vue", ".py", ".go", ".rs"],
-    "ignoredDirs": ["node_modules", ".git", "dist", "build", "coverage"],
-    "idleTimeout": 300,     // 5分钟无操作视为会话结束
-    "debounceDelay": 1000   // 文件变更防抖延迟
+    "useBlacklist": false,  // 覆盖全局设置
+    "fileExtensions": [".py"],  // 覆盖全局扩展名
+    "ignoredDirs": ["__pycache__"]  // 额外忽略的目录
   }
 }
 ```
 
+#### 配置项说明
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `idleTimeout` | 空闲超时时间（秒） | 1800 (30分钟) |
+| `debounceDelay` | 文件变更防抖延迟（毫秒） | 1000 |
+| `useBlacklist` | 是否使用黑名单模式 | true |
+| `fileExtensions` | 监控的文件扩展名 | [js, ts, jsx, tsx, vue, svelte, py, java, go, rs, cpp, h, c, css, scss, less, html, json, md] |
+| `ignoredDirs` | 忽略的目录 | [node_modules, .git, dist, build, coverage, logs, .idea] |
+| `dailyWarning` | 每日轻度提醒时长（小时） | 4 |
+| `dailyAlert` | 每日中度提醒时长（小时） | 6 |
+| `dailyMax` | 每日最大提醒时长（小时） | 8 |
+
 ## 📊 统计数据
 
+### 实时统计
+所有统计数据都包含活跃会话的时长，无需等待会话结束。
+
 ### 今日统计
-- 总编码时长
-- 编码会话次数
+```bash
+ctm show stats --today
+```
+- 总编码时长（实时）
+- 编码会话次数（包含活跃会话）
 - 平均会话时长
+- 编码强度评级
 - 按项目分布
 
-### 会话信息
-- 开始和结束时间
+### 会话详情
+```bash
+ctm show sessions
+```
+每个会话显示：
+- 会话ID：`项目名_20260318123456_abc12345`
+- 时间范围：开始时间 - 结束时间
 - 编码时长
 - 文件变更次数
-- 触及的文件数量
+- 涉及文件列表（最多显示10个）
 
-### 历史数据
-- 按日期记录
-- 按项目分组
-- 小时级分布
+### 活跃会话状态
+每1分钟自动记录活跃会话状态到日志：
+```
+活跃会话状态: 2个活跃会话
+  • myproject_20260318123456_abc12345: 进行中 45分钟 (空闲 2分钟, 变更 12次)
+  • anotherproj_20260318123652_def67890: 进行中 30分钟 (空闲 0分钟, 变更 8次)
+```
 
-## 🔔 通知类型
+## 🔔 通知系统
 
-### 1. 状态更新通知
-每60分钟自动推送，显示：
+### 通知类型
+
+#### 1. 状态更新通知
+每60分钟推送当前状态：
 - 今日编码时长
 - 会话次数
-- 监控项目数
+- 活跃会话数
 
-### 2. 每日时长提醒
+#### 2. 每日时长提醒
 - **4小时** - 轻度提醒："今日已编码 4小时，注意休息"
 - **6小时** - 中度警告："今日已编码 6小时，建议休息"
 - **8小时** - 严重警告："今日已编码 8小时，建议停止工作"
 
-### 3. 深夜编码提醒
+#### 3. 深夜编码提醒
 在 23:00-07:00 期间，每30分钟提醒：
 "当前时间 01:30，建议明天再继续"
 
-### 4. 休息提醒
+#### 4. 休息提醒
 连续编码2小时后提醒：
 "已连续编码 2小时，建议休息一下"
 
-### 5. 会话结束通知
+#### 5. 会话结束通知
 会话结束时显示：
-- 项目名称
+- 项目名称和会话ID
 - 本次编码时长
 - 文件变更次数
+- 涉及的文件列表
 
 ## 🛠️ 技术架构
 
 ### 核心模块
 - **ConfigManager** - 配置管理
-- **FileWatcher** - 文件监控
+- **FileWatcher** - 文件监控（使用 chokidar）
+- **FileFilter** - 文件过滤（支持黑名单/白名单）
 - **SessionManager** - 会话管理
 - **Persistence** - 数据持久化
-- **EnhancedNotificationSystem** - 增强通知系统
-- **StatsAnalyzer** - 统计分析
+- **StatsAnalyzer** - 统计分析（支持实时统计）
 - **CLICommands** - 命令行接口
+- **EnhancedNotificationSystem** - 增强通知系统
 
 ### 技术栈
 - Node.js 18+
 - PM2 - 进程管理
 - chokidar - 文件监控
 - node-notifier - macOS 通知
-- Winston - 日志管理
+- Winston - 日志管理（支持彩色控制台和文件日志）
 
 ## 📁 项目结构
 
@@ -254,19 +382,45 @@ npm run pm2:delete
 code-time-monitor/
 ├── src/
 │   ├── app.js                   # 主应用
-│   ├── index.js                 # 入口文件
-│   ├── config/                  # 配置管理
-│   ├── monitor/                 # 文件监控
-│   ├── tracker/                 # 会话跟踪
-│   ├── notification/            # 通知系统
-│   ├── stats/                   # 统计分析
+│   ├── index.js                 # 服务入口
 │   ├── cli/                     # 命令行接口
+│   │   ├── index.js            # CLI 入口
+│   │   ├── commands.js         # 命令实现
+│   │   └── ui.js               # UI 工具
+│   ├── config/                  # 配置管理
+│   │   ├── manager.js          # 配置管理器
+│   │   ├── schema.js           # 配置模式
+│   │   └── wizard.js           # 配置向导
+│   ├── monitor/                 # 文件监控
+│   │   ├── watcher.js          # 文件监视器
+│   │   ├── filter.js           # 文件过滤器
+│   │   └── events.js           # 事件管理
+│   ├── tracker/                 # 会话跟踪
+│   │   ├── session.js          # 会话类
+│   │   ├── persistence.js      # 数据持久化
+│   │   └── calculator.js       # 时间计算
+│   ├── stats/                   # 统计分析
+│   │   ├── analyzer.js         # 统计分析器
+│   │   └── report.js           # 报告生成
+│   ├── notification/            # 通知系统
+│   │   ├── notifier.js         # 通知器
+│   │   ├── enhanced-notifier.js # 增强通知
+│   │   ├── rules.js            # 提醒规则
+│   │   ├── queue.js            # 通知队列
+│   │   └── status-notifier.js  # 状态通知
 │   └── utils/                   # 工具函数
+│       ├── logger.js           # 日志工具
+│       ├── path.js             # 路径工具
+│       └── validator.js        # 验证工具
 ├── data/                        # 数据目录
 │   ├── config.json             # 用户配置
 │   └── stats.json              # 统计数据
 ├── logs/                        # 日志目录
+│   ├── combined.log            # 合并日志
+│   └── error.log               # 错误日志
 ├── icons/                       # 图标资源
+├── templates/                   # 模板文件
+│   └── default-config.json     # 默认配置
 ├── ecosystem.config.cjs        # PM2 配置
 ├── package.json
 └── README.md
@@ -276,57 +430,80 @@ code-time-monitor/
 
 ### 服务无法启动
 ```bash
-# 检查 PM2 状态
-npm run pm2:status
+# 检查服务状态
+ctm show status
 
 # 查看错误日志
 tail -f logs/error.log
 
 # 重启服务
-npm run pm2:restart
+ctm restart
 ```
+
+### 统计不准确
+- 确认服务正在运行：`ctm show status`
+- 查看活跃会话是否被正确计入
+- 检查日志是否有错误：`ctm logs`
+
+### 文件监控不工作
+1. 确认项目路径正确
+2. 检查文件扩展名配置
+3. 查看监控日志：`ctm logs`
+4. 确认是否使用正确的监控模式
 
 ### 通知不显示
 1. 检查 macOS 系统通知设置
 2. 确认 `notifications.enabled` 为 `true`
 3. 检查应用通知权限
 
-### 文件监控不工作
-1. 确认项目路径正确
-2. 检查文件扩展名配置
-3. 查看监控日志：
+### 重置所有数据
 ```bash
-npm run pm2:logs
+ctm reset
 ```
+⚠️ 这会删除所有统计数据和项目配置，不可恢复！
 
 ## 🎯 使用场景
 
 ### 1. 个人时间管理
-跟踪每日编码时间，避免过度工作
+- 跟踪每日编码时间
+- 避免过度工作
+- 分析编码习惯
 
-### 2. 团队健康监控
-团队成员可以了解工作强度
+### 2. 项目统计
+- 了解不同项目的编码时间分布
+- 追踪特定项目的投入
+- 生成项目报告
 
-### 3. 项目统计
-了解不同项目的编码时间分布
+### 3. 健康编码
+- 定时提醒休息
+- 深夜编码警告
+- 连续工作提醒
 
-### 4. 效率分析
-通过会话数据分析编码习惯
+### 4. 团队协作
+- 团队成员可以了解工作强度
+- 合理分配任务
+- 避免过度劳累
 
-## 📝 注意事项
+## 📝 更新日志
+
+### 2.0.0 (2026-03-18)
+- ✨ 新增实时统计功能
+- ✨ 新增会话详情查看命令
+- ✨ 新增语义化会话ID
+- ✨ 新增一键启动和一键重置
+- ✨ 新增黑名单模式和 .gitignore 支持
+- ✨ 重构命令结构，使用子命令
+- 🔧 优化日志，添加时间戳
+- 🔧 增加空闲超时到30分钟
+- 🔧 扩展监控范围，支持 .md 和 .json
+
+## ⚠️ 注意事项
 
 1. **隐私安全** - 只监控文件变更，不读取文件内容
 2. **性能影响** - 轻量级监控，对性能影响极小
 3. **数据存储** - 所有数据存储在本地，不上传云端
 4. **系统要求** - 需要 Node.js 18+ 环境
-
-## 🚀 未来规划
-
-- [ ] 数据导出功能（CSV/JSON）
-- [ ] 周报/月报生成
-- [ ] Web 界面
-- [ ] 多平台支持（Windows/Linux）
-- [ ] 云端同步（可选）
+5. **PM2 依赖** - 需要安装 PM2 进行进程管理
 
 ## 📄 许可证
 

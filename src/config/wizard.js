@@ -11,6 +11,7 @@ export class ConfigWizard {
 
   async run() {
     console.log('\n🚀 欢迎使用编码时间监控工具配置向导！\n');
+    logger.info('开始配置向导');
     
     const answers = await this.askQuestions();
     
@@ -21,7 +22,11 @@ export class ConfigWizard {
     await this.configManager.save();
     
     console.log('\n✅ 配置完成！\n');
-    console.log('提示：使用 "ctm start" 启动监控服务\n');
+    console.log('提示：');
+    console.log('  • 使用 "ctm start" 启动监控服务');
+    console.log('  • 使用 "ctm show status" 查看运行状态');
+    console.log('  • 如需自定义监控范围，请使用 "ctm config edit" 编辑配置\n');
+    logger.info('配置向导完成');
   }
 
   async askQuestions() {
@@ -70,6 +75,12 @@ export class ConfigWizard {
             return sanitizeProjectName(dirName);
           },
           filter: sanitizeProjectName
+        },
+        {
+          type: 'confirm',
+          name: 'useGitignore',
+          message: '是否使用项目的 .gitignore 文件来排除文件？',
+          default: true
         }
       ];
 
@@ -97,8 +108,27 @@ export class ConfigWizard {
       path: projectConfig.path
     };
 
+    // 如果选择不使用 gitignore，添加项目级别的监控配置
+    if (!projectConfig.useGitignore) {
+      project.monitoring = {
+        useBlacklist: false, // 不使用 gitignore 时，使用白名单模式
+        fileExtensions: [
+          '.js', '.ts', '.jsx', '.tsx', '.vue', '.svelte',
+          '.py', '.java', '.go', '.rs', '.cpp', '.h', '.c',
+          '.css', '.scss', '.less', '.html', '.json', '.md'
+        ]
+      };
+      
+      console.log(`\n  ⚠️  项目 "${project.name}" 已配置为不使用 .gitignore`);
+      console.log(`     如需自定义监控范围，请使用: ctm config edit\n`);
+    }
+
     this.configManager.addProject(project);
     logger.info(`添加项目: ${project.name} (${project.path})`);
+    
+    if (project.monitoring) {
+      logger.info(`  监控配置: ${JSON.stringify(project.monitoring)}`);
+    }
   }
 }
 

@@ -34,19 +34,24 @@ export class FileWatcher {
         followSymlinks: false
       });
 
-      const handleChange = (eventType, filePath) => {
-        if (!this.fileFilter.shouldWatch(filePath)) {
-          return;
+      const handleChange = async (eventType, filePath) => {
+        try {
+          const shouldWatch = await this.fileFilter.shouldWatch(filePath, project);
+          if (!shouldWatch) {
+            return;
+          }
+          
+          logger.debug(`文件变更: ${eventType} - ${filePath}`);
+          this.debouncedHandleChange(project.id, eventType, filePath);
+        } catch (error) {
+          logger.debug(`处理文件变更失败: ${error.message}`);
         }
-        
-        logger.debug(`文件变更: ${eventType} - ${filePath}`);
-        this.debouncedHandleChange(project.id, eventType, filePath);
       };
 
       watcher
-        .on('add', (path) => handleChange('add', path))
-        .on('change', (path) => handleChange('change', path))
-        .on('unlink', (path) => handleChange('unlink', path))
+        .on('add', (path) => handleChange('add', path).catch(e => {}))
+        .on('change', (path) => handleChange('change', path).catch(e => {}))
+        .on('unlink', (path) => handleChange('unlink', path).catch(e => {}))
         .on('error', (error) => {
           logger.error(`监控错误 [${project.name}]:`, error.message);
           this.eventManager.emitError({

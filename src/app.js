@@ -80,6 +80,19 @@ class CodeTimeMonitorApp {
         this.checkNotifications();
       }, 60 * 1000); // 每分钟检查一次
       
+      // 定期保存活跃会话信息（每30秒）
+      this.activeSessionsSaveInterval = setInterval(() => {
+        this.saveActiveSessionsToFile();
+      }, 30 * 1000);
+      
+      // 定期log活跃会话状态（每1分钟）
+      this.activeSessionsLogInterval = setInterval(() => {
+        this.logActiveSessionsStatus();
+      }, 1 * 60 * 1000);
+      
+      // 立即保存一次活跃会话信息
+      this.saveActiveSessionsToFile();
+      
       this.isRunning = true;
       logger.info('编码时间监控工具已启动');
       logger.info('状态通知已启用，每60分钟发送一次状态更新');
@@ -106,6 +119,14 @@ class CodeTimeMonitorApp {
         clearInterval(this.notificationCheckInterval);
       }
       
+      if (this.activeSessionsSaveInterval) {
+        clearInterval(this.activeSessionsSaveInterval);
+      }
+      
+      if (this.activeSessionsLogInterval) {
+        clearInterval(this.activeSessionsLogInterval);
+      }
+      
       // 结束所有活跃会话
       if (this.sessionManager) {
         const sessions = await this.sessionManager.endAllSessions();
@@ -129,6 +150,20 @@ class CodeTimeMonitorApp {
       // 保存缓存数据
       if (this.persistence) {
         await this.persistence.shutdown();
+      }
+      
+      // 清理活跃会话文件
+      try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const { getDataDir } = await import('./utils/path.js');
+        const activeSessionsPath = path.join(getDataDir(), 'active-sessions.json');
+        await fs.unlink(activeSessionsPath);
+      } catch (error) {
+        // 忽略文件不存在的错误
+        if (error.code !== 'ENOENT') {
+          logger.warn('清理活跃会话文件失败:', error.message);
+        }
       }
       
       this.isRunning = false;
@@ -159,6 +194,59 @@ class CodeTimeMonitorApp {
       }
     } catch (error) {
       logger.error('检查通知规则失败:', error.message, error.stack);
+    }
+  }
+
+  async saveActiveSessionsToFile() {
+    if (!this.sessionManager) {
+      return;
+    }
+
+    try {
+      const activeSessions = this.sessionManager.getActiveSessions();
+      const sessionData = activeSessions.map(session => ({
+        id: session.id,
+        projectId: session.projectId,
+        projectName: session.projectName,
+        startTime: session.startTime,
+        lastActivity: session.lastActivity,
+        fileChanges: session.fileChanges,
+        filesTouched: Array.from(session.filesTouched)
+      }));
+
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { getDataDir } = await import('./utils/path.js');
+
+      const activeSessionsPath = path.join(getDataDir(), 'active-sessions.json');
+      await fs.writeFile(activeSessionsPath, JSON.stringify({
+        timestamp: Date.now(),
+        sessions: sessionData
+      }, null, 2));
+    } catch (error) {
+      logger.error('保存活跃会话信息失败:', error.message);
+    }
+  }
+
+  logActiveSessionsStatus() {
+    if (!this.sessionManager) {
+      return;
+    }
+
+    try {
+      const activeSessions = this.sessionManager.getActiveSessions();
+
+      if (activeSessions.length === 0) {
+        logger.info('活跃会话状态: 无活跃会话');
+        return;
+      }
+
+      logger.info(`活跃会话状态: ${activeSessions.length}个活跃会话`);
+      for (const session of activeSessions) {
+        logger.info(`  • ${session.projectName}_${session.id}: 进行中 ${session.getDurationMinutes()}分钟 (空闲 ${session.getIdleTimeMinutes()}分钟, 变更 ${session.fileChanges}次)`);
+      }
+    } catch (error) {
+      logger.error('记录活跃会话状态失败:', error.message);
     }
   }
 

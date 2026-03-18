@@ -3,7 +3,12 @@ import logger from '../utils/logger.js';
 
 export class Session {
   constructor(projectId, projectName) {
-    this.id = uuidv4();
+    // 生成更有语义的ID：项目名_日期时间_随机数
+    const now = new Date();
+    const dateStr = now.toISOString().replace(/[:.]/g, '').slice(0, 14); // 20260318T171800
+    const randomId = uuidv4().slice(0, 8); // 取UUID前8位作为随机标识
+    this.id = `${projectName}_${dateStr}_${randomId}`;
+    
     this.projectId = projectId;
     this.projectName = projectName;
     this.startTime = Date.now();
@@ -26,6 +31,14 @@ export class Session {
     return Date.now() - this.lastActivity;
   }
 
+  getDurationMinutes() {
+    return Math.floor(this.getDuration() / 60000);
+  }
+
+  getIdleTimeMinutes() {
+    return Math.floor(this.getIdleTime() / 60000);
+  }
+
   toJSON() {
     return {
       id: this.id,
@@ -33,10 +46,21 @@ export class Session {
       projectName: this.projectName,
       startTime: new Date(this.startTime).toISOString(),
       endTime: new Date().toISOString(),
-      durationMinutes: Math.floor(this.getDuration() / 60000),
+      durationMinutes: this.getDurationMinutes(),
       fileChanges: this.fileChanges,
       filesTouched: Array.from(this.filesTouched)
     };
+  }
+
+  // 从数据创建 Session 对象（用于恢复活跃会话）
+  static fromData(sessionData) {
+    const session = new Session(sessionData.projectId, sessionData.projectName);
+    session.id = sessionData.id;
+    session.startTime = sessionData.startTime;
+    session.lastActivity = sessionData.lastActivity;
+    session.fileChanges = sessionData.fileChanges;
+    session.filesTouched = new Set(sessionData.filesTouched);
+    return session;
   }
 }
 
@@ -82,7 +106,7 @@ export class SessionManager {
     this.activeSessions.set(project.id, session);
     
     this.eventManager.emitSessionStart(session);
-    logger.info(`会话开始: ${project.name}`);
+    logger.info(`会话开始: ${project.name}_${session.id}`);
   }
 
   updateSession(projectId, filePath) {
@@ -104,7 +128,7 @@ export class SessionManager {
     this.activeSessions.delete(projectId);
 
     // 打印会话结束信息，包括文件变更详情
-    logger.info(`会话结束: ${sessionData.projectName} (${sessionData.durationMinutes}分钟)`);
+    logger.info(`会话结束: ${sessionData.projectName}_${sessionData.id} (${sessionData.durationMinutes}分钟)`);
 
     if (sessionData.filesTouched && sessionData.filesTouched.length > 0) {
       logger.info(`  文件变更 (${sessionData.fileChanges}次):`);

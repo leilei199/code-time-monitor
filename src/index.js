@@ -10,45 +10,10 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
-  // CLI 命令直接转发
-  if (command && ['status', 'stats', 'add-project', 'config', 'reset-stats'].includes(command)) {
-    const { CLICommands } = await import('./cli/commands.js');
-    const commands = new CLICommands();
-    
-    // 解析命令参数
-    const options = {};
-    for (let i = 1; i < args.length; i++) {
-      if (args[i].startsWith('--')) {
-        const key = args[i].slice(2);
-        const value = args[i + 1];
-        if (value && !value.startsWith('--')) {
-          options[key] = value;
-          i++;
-        } else {
-          options[key] = true;
-        }
-      }
-    }
-    
-    switch (command) {
-      case 'status':
-        await commands.status();
-        break;
-      case 'stats':
-        await commands.stats(options);
-        break;
-      case 'add-project':
-        await commands.addProject();
-        break;
-      case 'config':
-        await commands.config(options.show ? 'show' : options.edit ? 'edit' : options.reset ? 'reset' : 'show');
-        break;
-      case 'reset-stats':
-        await commands.resetStats();
-        break;
-    }
-    
-    process.exit(0);
+  // 如果是 CLI 命令，直接使用 CLI 入口
+  if (command && ['status', 'stats', 'sessions', 'add-project', 'config', 'reset-stats', 'start', 'stop', 'restart', 'logs', 'startup', 'delete', 'show', 'data', 'version', 'reset'].includes(command)) {
+    await import('./cli/index.js');
+    return;
   }
 
   // 默认行为：启动监控服务
@@ -64,7 +29,7 @@ async function main() {
     
     // 检查是否有项目配置
     if (config.projects.length === 0) {
-      console.log('\n🚀 首次使用？欢迎使用编码时间监控工具！\n');
+      logger.info('首次使用？欢迎使用编码时间监控工具！');
       
       const wizard = new ConfigWizard(configManager);
       await wizard.run();
@@ -75,10 +40,9 @@ async function main() {
     // 检查是否有启用的项目
     const enabledProjects = configManager.getProjects(true);
     if (enabledProjects.length === 0) {
-      console.log('\n⚠️  没有启用的项目，请先配置项目\n');
-      console.log('使用以下命令添加项目:');
-      console.log('  ctm add-project');
-      console.log('');
+      logger.warn('没有启用的项目，请先配置项目');
+      logger.info('使用以下命令添加项目:');
+      logger.info('  ctm config add');
       process.exit(0);
     }
     
@@ -87,23 +51,20 @@ async function main() {
     const started = await app.start();
     
     if (started) {
-      console.log('\n✅ 编码时间监控工具正在运行...\n');
-      console.log('监控项目:');
+      logger.info('编码时间监控工具正在运行...');
+      logger.info('监控项目:');
       enabledProjects.forEach(project => {
-        console.log(`  • ${project.name}`);
+        logger.info(`  • ${project.name}`);
       });
-      console.log('');
-      console.log('使用以下命令查看状态:');
-      console.log('  ctm status');
-      console.log('  ctm stats');
-      console.log('');
-      console.log('使用以下命令停止监控:');
-      console.log('  ctm stop');
-      console.log('');
+      logger.info('使用以下命令查看状态:');
+      logger.info('  ctm show status');
+      logger.info('  ctm show stats');
+      logger.info('使用以下命令停止监控:');
+      logger.info('  ctm service stop');
       
       // 保持进程运行
       process.on('SIGINT', async () => {
-        console.log('\n\n正在停止...');
+        logger.info('正在停止...');
         await app.stop();
         process.exit(0);
       });
