@@ -32,21 +32,25 @@ export class Session {
   }
 
   /**
-   * 活跃时长 = 最后一次文件变更时间 - 会话开始时间
-   * 不包含尾部等待超时的那段空闲，只计真实有操作的时间跨度
+   * 活跃时长（用于实时展示）：最后一次文件变更 - 会话开始
+   * 仅反映已确认有操作的时间跨度，不含尾部等待
    */
   getDurationMinutes() {
     return Math.floor((this.lastActivity - this.startTime) / 60000);
   }
 
-  toJSON() {
+  /**
+   * 落库时长：会话真正结束的时刻 - 会话开始
+   * 包含最后一次操作后的思考时间，由 endSession() 传入结束时刻
+   */
+  toJSON(endTime = Date.now()) {
     return {
       id: this.id,
       projectId: this.projectId,
       projectName: this.projectName,
       startTime: new Date(this.startTime).toISOString(),
-      endTime: new Date(this.lastActivity).toISOString(),
-      durationMinutes: this.getDurationMinutes(),
+      endTime: new Date(endTime).toISOString(),
+      durationMinutes: Math.floor((endTime - this.startTime) / 60000),
       fileChanges: this.fileChanges,
       filesTouched: Array.from(this.filesTouched)
     };
@@ -122,7 +126,7 @@ export class SessionManager {
       return;
     }
 
-    const sessionData = session.toJSON();
+    const sessionData = session.toJSON(Date.now());
 
     this.eventManager.emitSessionEnd(sessionData);
     this.activeSessions.delete(projectId);
