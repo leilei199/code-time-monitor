@@ -19,8 +19,11 @@ const logFormat = winston.format.combine(
   })
 );
 
+// 只在真实 TTY 终端下启用颜色，PM2 日志文件等非 TTY 环境不加颜色转义码
+const isTTY = process.stdout.isTTY === true;
+
 const consoleFormat = winston.format.combine(
-  winston.format.colorize({ all: true }),
+  ...(isTTY ? [winston.format.colorize({ all: true })] : []),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
   winston.format.printf(({ level, message, timestamp, stack }) => {
