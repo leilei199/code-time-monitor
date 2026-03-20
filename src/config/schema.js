@@ -25,7 +25,7 @@ export const DEFAULT_CONFIG = {
       'node_modules', '.git', 'dist', 'build', 'coverage',
       '.next', '.nuxt', '.cache', 'tmp', 'temp'
     ],
-    idleTimeout: 300,
+    idleTimeout: 1800,
     debounceDelay: 1000
   },
   notifications: {

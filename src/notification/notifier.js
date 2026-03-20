@@ -34,6 +34,10 @@ export class NotificationSystem {
 
   notifyDailyLimit(minutes, level) {
     const levelMessages = {
+      status: {
+        title: '⏱️ 编码时间播报',
+        message: `今日已编码 ${this.formatTime(minutes)}`
+      },
       medium: {
         title: '编码时长提醒',
         message: `今日已编码 ${this.formatTime(minutes)}，注意休息`
@@ -48,7 +52,7 @@ export class NotificationSystem {
       }
     };
 
-    const config = levelMessages[level] || levelMessages.medium;
+    const config = levelMessages[level] || levelMessages.status;
     this.notify(config.title, config.message);
   }
 
@@ -62,7 +66,7 @@ export class NotificationSystem {
   notifyBreakReminder(duration) {
     this.notify(
       '休息提醒',
-      `已连续编码 ${this.formatTime(duration)}，建议休息一下`
+      `已连续编码 ${this.formatTime(duration)}，建议做个人吧`
     );
   }
 

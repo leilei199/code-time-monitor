@@ -15,40 +15,38 @@ export class NotificationRules {
 
   async checkDailyLimit(todayStats) {
     const totalMinutes = todayStats.totalMinutes || 0;
-    
-    if (totalMinutes >= this.dailyMax) {
-      const shouldNotify = await this.shouldSend('DailyMax', 2 * 60 * 60 * 1000);
-      if (shouldNotify) {
-        return {
-          type: 'daily-limit',
-          level: 'critical',
-          message: TimeCalculator.formatDuration(totalMinutes),
-          notifyType: 'DailyMax'
-        };
-      }
-    } else if (totalMinutes >= this.dailyAlert) {
-      const shouldNotify = await this.shouldSend('DailyAlert', 60 * 60 * 1000);
-      if (shouldNotify) {
-        return {
-          type: 'daily-limit',
-          level: 'high',
-          message: TimeCalculator.formatDuration(totalMinutes),
-          notifyType: 'DailyAlert'
-        };
-      }
-    } else if (totalMinutes >= this.dailyWarning) {
-      const shouldNotify = await this.shouldSend('DailyWarning', 60 * 60 * 1000);
-      if (shouldNotify) {
-        return {
-          type: 'daily-limit',
-          level: 'medium',
-          message: TimeCalculator.formatDuration(totalMinutes),
-          notifyType: 'DailyWarning'
-        };
-      }
+
+    // 整点推送：只在每个自然小时的整点（分钟数为0）触发
+    // 去重 key 包含日期和小时，保证每个整点最多推一次
+    const now = dayjs();
+    if (now.minute() !== 0) {
+      return null;
     }
-    
-    return null;
+
+    const hourKey = now.format('YYYY-MM-DD_HH');
+    const notifyKey = `HourlyStatus_${hourKey}`;
+    const alreadySent = await this.shouldSend(notifyKey, 0) === false;
+    if (alreadySent) {
+      return null;
+    }
+
+    // 根据今日累计时长决定提醒级别，未达阈值则推纯状态播报
+    let level = 'status';
+    if (totalMinutes >= this.dailyMax) {
+      level = 'critical';
+    } else if (totalMinutes >= this.dailyAlert) {
+      level = 'high';
+    } else if (totalMinutes >= this.dailyWarning) {
+      level = 'medium';
+    }
+
+    return {
+      type: 'daily-limit',
+      level,
+      totalMinutes,
+      message: TimeCalculator.formatDuration(totalMinutes),
+      notifyType: notifyKey
+    };
   }
 
   async checkNightMode() {
@@ -84,20 +82,28 @@ export class NotificationRules {
     }
 
     const duration = session.durationMinutes || 0;
-    const threshold = this.breakReminder.intervalMinutes;
-    
-    // 检查是否达到提醒间隔的倍数
-    if (duration > 0 && duration % threshold === 0) {
-      const shouldNotify = await this.shouldSend(`BreakReminder_${duration}`, 60 * 60 * 1000);
-      if (shouldNotify) {
-        return {
-          type: 'break-reminder',
-          message: TimeCalculator.formatDuration(duration),
-          notifyType: 'BreakReminder'
-        };
-      }
+    if (duration <= 0) {
+      return null;
     }
-    
+
+    // 不超过2小时：每60分钟提醒一次；超过2小时：每30分钟提醒一次
+    const fatigueThresholdMinutes = 120;
+    const normalIntervalMs = 60 * 60 * 1000;
+    const intenseIntervalMs = 30 * 60 * 1000;
+
+    const reminderIntervalMs = duration >= fatigueThresholdMinutes
+      ? intenseIntervalMs
+      : normalIntervalMs;
+
+    const shouldNotify = await this.shouldSend('BreakReminder', reminderIntervalMs);
+    if (shouldNotify) {
+      return {
+        type: 'break-reminder',
+        message: TimeCalculator.formatDuration(duration),
+        notifyType: 'BreakReminder'
+      };
+    }
+
     return null;
   }
 

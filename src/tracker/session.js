@@ -8,7 +8,7 @@ export class Session {
     const dateStr = now.toISOString().replace(/[:.]/g, '').slice(0, 14); // 20260318T171800
     const randomId = uuidv4().slice(0, 8); // 取UUID前8位作为随机标识
     this.id = `${projectName}_${dateStr}_${randomId}`;
-    
+
     this.projectId = projectId;
     this.projectName = projectName;
     this.startTime = Date.now();
@@ -23,20 +23,20 @@ export class Session {
     this.filesTouched.add(filePath);
   }
 
-  getDuration() {
-    return Date.now() - this.startTime;
-  }
-
   getIdleTime() {
     return Date.now() - this.lastActivity;
   }
 
-  getDurationMinutes() {
-    return Math.floor(this.getDuration() / 60000);
-  }
-
   getIdleTimeMinutes() {
     return Math.floor(this.getIdleTime() / 60000);
+  }
+
+  /**
+   * 活跃时长 = 最后一次文件变更时间 - 会话开始时间
+   * 不包含尾部等待超时的那段空闲，只计真实有操作的时间跨度
+   */
+  getDurationMinutes() {
+    return Math.floor((this.lastActivity - this.startTime) / 60000);
   }
 
   toJSON() {
@@ -45,7 +45,7 @@ export class Session {
       projectId: this.projectId,
       projectName: this.projectName,
       startTime: new Date(this.startTime).toISOString(),
-      endTime: new Date().toISOString(),
+      endTime: new Date(this.lastActivity).toISOString(),
       durationMinutes: this.getDurationMinutes(),
       fileChanges: this.fileChanges,
       filesTouched: Array.from(this.filesTouched)
@@ -81,7 +81,7 @@ export class SessionManager {
 
   async handleFileChange(event) {
     const { projectId, filePath } = event;
-    
+
     this.clearIdleTimer(projectId);
 
     if (!this.activeSessions.has(projectId)) {
@@ -102,9 +102,9 @@ export class SessionManager {
 
     const session = new Session(project.id, project.name);
     session.recordFileChange(event.filePath);
-    
+
     this.activeSessions.set(project.id, session);
-    
+
     this.eventManager.emitSessionStart(session);
     logger.info(`会话开始: ${project.name}_${session.id}`);
   }
@@ -127,7 +127,6 @@ export class SessionManager {
     this.eventManager.emitSessionEnd(sessionData);
     this.activeSessions.delete(projectId);
 
-    // 打印会话结束信息，包括文件变更详情
     logger.info(`会话结束: ${sessionData.projectName}_${sessionData.id} (${sessionData.durationMinutes}分钟)`);
 
     if (sessionData.filesTouched && sessionData.filesTouched.length > 0) {
@@ -142,13 +141,13 @@ export class SessionManager {
 
   setIdleTimer(projectId) {
     this.clearIdleTimer(projectId);
-    
+
     const config = this.configManager.get();
-const timeout = config.monitoring.idleTimeout * 1000;
+    const timeout = config.monitoring.idleTimeout * 1000;
     const timer = setTimeout(() => {
       this.endSession(projectId);
     }, timeout);
-    
+
     this.idleTimers.set(projectId, timer);
   }
 
@@ -163,14 +162,14 @@ const timeout = config.monitoring.idleTimeout * 1000;
   async endAllSessions() {
     const sessionIds = Array.from(this.activeSessions.keys());
     const sessions = [];
-    
+
     for (const projectId of sessionIds) {
       const session = await this.endSession(projectId);
       if (session) {
         sessions.push(session);
       }
     }
-    
+
     return sessions;
   }
 

@@ -45,7 +45,7 @@ export class NotificationQueue {
       switch (notification.type) {
         case 'daily-limit':
           this.notificationSystem.notifyDailyLimit(
-            notification.minutes,
+            notification.totalMinutes,
             notification.level
           );
           break;

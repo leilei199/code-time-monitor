@@ -48,8 +48,7 @@ class CodeTimeMonitorApp {
       this.notificationQueue = new NotificationQueue(this.notificationSystem);
       this.statsAnalyzer = new StatsAnalyzer(this.persistence);
       
-      // 启用状态更新（每60分钟发送一次状态通知）
-      this.notificationSystem.enableStatusUpdates(60);
+      // 每日时长提醒已合并至整点推送，无需独立状态播报
       
       // 设置会话结束处理
       this.eventManager.onSessionEnd(async (session) => {
@@ -95,7 +94,7 @@ class CodeTimeMonitorApp {
       
       this.isRunning = true;
       logger.info('编码时间监控工具已启动');
-      logger.info('状态通知已启用，每60分钟发送一次状态更新');
+      logger.info('整点状态播报已启用（每小时整点推送今日编码汇总）');
       logger.info(`监控项目数: ${projects.length}`);
       
       return true;
