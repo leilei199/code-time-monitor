@@ -242,7 +242,7 @@ class CodeTimeMonitorApp {
 
       logger.info(`活跃会话状态: ${activeSessions.length}个活跃会话`);
       for (const session of activeSessions) {
-        logger.info(`  • ${session.projectName}_${session.id}: 进行中 ${session.getDurationMinutes()}分钟 (空闲 ${session.getIdleTimeMinutes()}分钟, 变更 ${session.fileChanges}次)`);
+        logger.info(`  • ${session.projectName}_${session.id}: 进行中 ${session.getDurationMinutes()}分钟 (距上次操作 ${session.getIdleTimeMinutes()}分钟, 变更 ${session.fileChanges}次)`);
       }
     } catch (error) {
       logger.error('记录活跃会话状态失败:', error.message);

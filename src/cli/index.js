@@ -153,6 +153,7 @@ showCmd
   .description('查看会话详情')
   .option('--date <date>', '指定日期 (YYYY-MM-DD)')
   .option('--simple', '简化显示')
+  .option('--current', '查看当前活跃会话详情')
   .action(async (options) => {
     try {
       await commands.sessions(options);

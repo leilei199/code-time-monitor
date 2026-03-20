@@ -177,11 +177,10 @@ export class CLICommands {
   async status() {
     await this.init();
     const projects = this.configManager.getProjects();
-    const { SessionManager } = await import('../tracker/session.js');
-    const { Persistence } = await import('../tracker/persistence.js');
-    const persistence = new Persistence(this.configManager);
-    const stats = await persistence.getTodayStats();
-    
+
+    // 复用 StatsAnalyzer，传入活跃会话，保证口径与 ctm stats 完全一致
+    const summary = await this.statsAnalyzer.getTodaySummary(this.activeSessions || []);
+
     CLIUI.title('📊 编码时间监控工具 - 状态');
     
     // 检查监控服务状态
@@ -219,31 +218,24 @@ export class CLICommands {
     }
     
     // 显示活跃会话
-    if (this.activeSessions && this.activeSessions.length > 0) {
+    if (summary.hasActiveSessions) {
       console.log('\n活跃会话:');
-      for (const session of this.activeSessions) {
-        console.log(`  • ${session.projectName}: 进行中 (${session.getDurationMinutes()}分钟)`);
-        console.log(`    文件变更: ${session.fileChanges}次`);
+      for (const session of summary.activeSessions) {
+        console.log(`  • ${session.projectName}: 进行中 (${session.durationMinutes}分钟)`);
       }
     }
 
-    // 计算包含活跃会话的总时长
-    let totalMinutes = stats.totalMinutes;
-    if (this.activeSessions && this.activeSessions.length > 0) {
-      totalMinutes += this.activeSessions.reduce((sum, session) => sum + session.getDurationMinutes(), 0);
-    }
-    
     console.log('\n今日统计:');
     const { TimeCalculator } = await import('../tracker/calculator.js');
-    console.log(`  总时长: ${TimeCalculator.formatDuration(totalMinutes)}`);
-    console.log(`  会话数: ${stats.sessions.length}`);
-    if (this.activeSessions && this.activeSessions.length > 0) {
-      console.log(`  活跃会话: ${this.activeSessions.length}个`);
+    console.log(`  总时长: ${TimeCalculator.formatDuration(summary.totalMinutes)}`);
+    console.log(`  会话数: ${summary.totalSessions}`);
+    if (summary.hasActiveSessions) {
+      console.log(`  活跃会话: ${summary.activeSessions.length}个`);
     }
     
-    if (Object.keys(stats.byProject).length > 0) {
+    if (Object.keys(summary.byProject).length > 0) {
       console.log('\n按项目:');
-      for (const [project, minutes] of Object.entries(stats.byProject)) {
+      for (const [project, minutes] of Object.entries(summary.byProject)) {
         console.log(`  • ${project}: ${TimeCalculator.formatDuration(minutes)}`);
       }
     }
@@ -256,23 +248,25 @@ export class CLICommands {
 
     let summary, title, message;
 
+    const activeSessions = this.activeSessions || [];
+
     if (options.today) {
-      summary = await this.statsAnalyzer.getTodaySummary();
+      summary = await this.statsAnalyzer.getTodaySummary(activeSessions);
       console.log(this.statsReport.formatTodaySummary(summary));
       title = '今日编码统计';
       message = `今日编码时长: ${this.formatTime(summary.totalMinutes)}`;
     } else if (options.week) {
-      summary = await this.statsAnalyzer.getWeekSummary();
+      summary = await this.statsAnalyzer.getWeekSummary(activeSessions);
       console.log(this.statsReport.formatWeekSummary(summary));
       title = '本周编码统计';
       message = `本周编码时长: ${this.formatTime(summary.totalMinutes)}`;
     } else if (options.project) {
-      summary = await this.statsAnalyzer.getProjectSummary(options.project);
+      summary = await this.statsAnalyzer.getProjectSummary(options.project, activeSessions);
       console.log(this.statsReport.formatProjectSummary(summary));
       title = `项目 ${options.project} 统计`;
       message = `编码时长: ${this.formatTime(summary.totalMinutes)}`;
     } else {
-      summary = await this.statsAnalyzer.getTodaySummary();
+      summary = await this.statsAnalyzer.getTodaySummary(activeSessions);
       console.log(this.statsReport.formatTodaySummary(summary));
       title = '今日编码统计';
       message = `今日编码时长: ${this.formatTime(summary.totalMinutes)}`;
@@ -286,10 +280,16 @@ export class CLICommands {
 
   async sessions(options = {}) {
     await this.init();
-    
+
+    // --current：查看当前活跃会话详情
+    if (options.current) {
+      await this.showCurrentSessions();
+      return;
+    }
+
     const { Persistence } = await import('../tracker/persistence.js');
     const persistence = new Persistence(this.configManager);
-    
+
     // 确定日期
     let dateStr;
     if (options.date) {
@@ -297,37 +297,37 @@ export class CLICommands {
     } else {
       dateStr = new Date().toISOString().split('T')[0];
     }
-    
+
     const dayData = await persistence.getDaySessions(dateStr);
-    
+
     CLIUI.title(`📅 ${dateStr} 会话详情`);
-    
+
     if (dayData.sessions.length === 0) {
       console.log('该日期没有会话记录');
       console.log('');
       return;
     }
-    
+
     console.log(`总时长: ${this.formatTime(dayData.totalMinutes)}`);
     console.log(`会话数: ${dayData.sessions.length}`);
     console.log('');
-    
+
     // 按时间排序
     const sortedSessions = [...dayData.sessions].sort((a, b) => {
       return new Date(a.startTime) - new Date(b.startTime);
     });
-    
+
     // 显示每个会话详情
     sortedSessions.forEach((session, index) => {
       const startTime = new Date(session.startTime);
       const endTime = new Date(session.endTime);
       const startStr = startTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
       const endStr = endTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      
+
       console.log(`${index + 1}. ${session.projectName} [${session.id}]`);
       console.log(`   时间: ${startStr} - ${endStr} (${session.durationMinutes}分钟)`);
       console.log(`   文件变更: ${session.fileChanges}次`);
-      
+
       if (session.filesTouched && session.filesTouched.length > 0) {
         const filesCount = session.filesTouched.length;
         console.log(`   涉及文件: ${filesCount}个`);
@@ -344,7 +344,7 @@ export class CLICommands {
       }
       console.log('');
     });
-    
+
     // 按项目汇总
     if (Object.keys(dayData.byProject).length > 0) {
       console.log('按项目汇总:');
@@ -354,6 +354,52 @@ export class CLICommands {
       }
       console.log('');
     }
+  }
+
+  async showCurrentSessions() {
+    CLIUI.title('⚡ 当前活跃会话');
+
+    if (!this.activeSessions || this.activeSessions.length === 0) {
+      console.log('当前没有活跃会话');
+      console.log('');
+      console.log('提示: 活跃会话数据每30秒更新一次，请确认监控服务正在运行');
+      console.log('');
+      return;
+    }
+
+    const now = Date.now();
+    let totalActiveMinutes = 0;
+
+    this.activeSessions.forEach((session, index) => {
+      const durationMinutes = session.getDurationMinutes();
+      const idleMinutes = session.getIdleTimeMinutes();
+      const startTime = new Date(session.startTime);
+      const startStr = startTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const elapsedMinutes = Math.floor((now - session.startTime) / 60000);
+
+      totalActiveMinutes += durationMinutes;
+
+      console.log(`${index + 1}. ${session.projectName}`);
+      console.log(`   开始时间: ${startStr}（已过 ${elapsedMinutes} 分钟）`);
+      console.log(`   进行中: ${this.formatTime(durationMinutes)}（距上次操作 ${idleMinutes} 分钟）`);
+      console.log(`   文件变更: ${session.fileChanges}次`);
+
+      if (session.filesTouched && session.filesTouched.size > 0) {
+        const files = Array.from(session.filesTouched);
+        console.log(`   涉及文件: ${files.length}个`);
+        files.slice(0, 10).forEach(file => {
+          console.log(`     • ${file}`);
+        });
+        if (files.length > 10) {
+          console.log(`     ... 还有 ${files.length - 10} 个文件`);
+        }
+      }
+      console.log('');
+    });
+
+    console.log(`活跃会话数: ${this.activeSessions.length}个`);
+    console.log(`本轮合计: ${this.formatTime(totalActiveMinutes)}`);
+    console.log('');
   }
 
   async sendNotification(title, message) {
