@@ -156,10 +156,20 @@ export class CLICommands {
       const data = await fs.readFile(activeSessionsPath, 'utf-8');
       const activeSessionsData = JSON.parse(data);
 
+      // 检查服务是否正在运行
+      const { execSync } = await import('child_process');
+      const pm2Cmd = await this.getPm2Command();
+      const statusOutput = execSync(`${pm2Cmd} status`, { encoding: 'utf-8' });
+      
+      if (!statusOutput.includes('code-time-monitor') || !statusOutput.includes('online')) {
+        logger.debug('监控服务未运行，忽略活跃会话数据');
+        return [];
+      }
+
       // 检查数据是否过期（超过5分钟）
       const dataAge = Date.now() - activeSessionsData.timestamp;
       if (dataAge > 5 * 60 * 1000) {
-        logger.debug('活跃会话数据已过期');
+        logger.debug('活跃会话数据已过期，监控服务可能异常');
         return [];
       }
 
@@ -737,19 +747,19 @@ export class CLICommands {
     const { execSync } = await import('child_process');
     const { getLogDir } = await import('../utils/path.js');
     const logDir = getLogDir();
-    const combinedLogPath = `${logDir}/combined.log`;
+    const outLogPath = `${logDir}/out.log`;
     const errorLogPath = `${logDir}/error.log`;
     
     console.log('\n📋 查看日志文件 (按 Ctrl+C 退出)\n');
     
     try {
-      // 使用 tail -f 实时查看 combined.log
-      execSync(`tail -f ${combinedLogPath}`, { stdio: 'inherit' });
+      // 使用 tail -f 实时查看 out.log（PM2 标准输出）
+      execSync(`tail -f ${outLogPath}`, { stdio: 'inherit' });
     } catch (error) {
       if (error.signal === 'SIGINT') {
         console.log('\n已退出日志查看');
       } else {
-        // 如果 combined.log 不存在，尝试查看 error.log
+        // 如果 out.log 不存在，尝试查看 error.log
         try {
           execSync(`tail -f ${errorLogPath}`, { stdio: 'inherit' });
         } catch (error2) {
@@ -759,8 +769,8 @@ export class CLICommands {
             console.error('\n❌ 查看日志失败，日志文件可能不存在');
             console.log(`\n日志目录: ${logDir}`);
             console.log('你可以直接查看日志文件:');
-            console.log(`  cat ${combinedLogPath}`);
-            console.log(`  tail -f ${combinedLogPath}\n`);
+            console.log(`  cat ${outLogPath}`);
+            console.log(`  tail -f ${outLogPath}\n`);
             process.exit(1);
           }
         }

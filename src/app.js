@@ -228,10 +228,14 @@ class CodeTimeMonitorApp {
       const { getDataDir } = await import('./utils/path.js');
 
       const activeSessionsPath = path.join(getDataDir(), 'active-sessions.json');
-      await fs.writeFile(activeSessionsPath, JSON.stringify({
+      
+      // 原子写入：先写入临时文件，再重命名
+      const tempPath = activeSessionsPath + '.tmp';
+      await fs.writeFile(tempPath, JSON.stringify({
         timestamp: Date.now(),
         sessions: sessionData
       }, null, 2));
+      await fs.rename(tempPath, activeSessionsPath);
     } catch (error) {
       logger.error('保存活跃会话信息失败:', error.message);
     }
