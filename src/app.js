@@ -220,7 +220,6 @@ class CodeTimeMonitorApp {
         projectName: session.projectName,
         startTime: session.startTime,
         lastActivity: session.lastActivity,
-        fileChanges: session.fileChanges,
         filesTouched: Array.from(session.filesTouched)
       }));
 
@@ -253,7 +252,7 @@ class CodeTimeMonitorApp {
 
       logger.info(`活跃会话状态: ${activeSessions.length}个活跃会话`);
       for (const session of activeSessions) {
-        logger.info(`  • ${session.projectName}_${session.id}: 进行中 ${session.getDurationMinutes()}分钟 (距上次操作 ${session.getIdleTimeMinutes()}分钟, 变更 ${session.fileChanges}次)`);
+        logger.info(`  • ${session.projectName}_${session.id}: 进行中 ${session.getDurationMinutes()}分钟 (距上次操作 ${session.getIdleTimeMinutes()}分钟, 修改 ${session.filesTouched.size}个文件)`);
       }
     } catch (error) {
       logger.error('记录活跃会话状态失败:', error.message);

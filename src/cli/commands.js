@@ -326,7 +326,6 @@ export class CLICommands {
 
       console.log(`${index + 1}. ${session.projectName} [${session.id}]`);
       console.log(`   时间: ${startStr} - ${endStr} (${session.durationMinutes}分钟)`);
-      console.log(`   文件变更: ${session.fileChanges}次`);
 
       if (session.filesTouched && session.filesTouched.length > 0) {
         const filesCount = session.filesTouched.length;
@@ -382,7 +381,6 @@ export class CLICommands {
       console.log(`${index + 1}. ${session.projectName}`);
       console.log(`   开始时间: ${startStr}（已过 ${elapsedMinutes} 分钟）`);
       console.log(`   进行中: ${this.formatTime(durationMinutes)}（距上次操作 ${idleMinutes} 分钟）`);
-      console.log(`   文件变更: ${session.fileChanges}次`);
 
       if (session.filesTouched && session.filesTouched.size > 0) {
         const files = Array.from(session.filesTouched);

@@ -13,13 +13,11 @@ export class Session {
     this.projectName = projectName;
     this.startTime = Date.now();
     this.lastActivity = Date.now();
-    this.fileChanges = 0;
     this.filesTouched = new Set();
   }
 
   recordFileChange(filePath) {
     this.lastActivity = Date.now();
-    this.fileChanges++;
     this.filesTouched.add(filePath);
   }
 
@@ -51,7 +49,6 @@ export class Session {
       startTime: new Date(this.startTime).toISOString(),
       endTime: new Date(endTime).toISOString(),
       durationMinutes: Math.floor((endTime - this.startTime) / 60000),
-      fileChanges: this.fileChanges,
       filesTouched: Array.from(this.filesTouched)
     };
   }
@@ -62,7 +59,6 @@ export class Session {
     session.id = sessionData.id;
     session.startTime = sessionData.startTime;
     session.lastActivity = sessionData.lastActivity;
-    session.fileChanges = sessionData.fileChanges;
     session.filesTouched = new Set(sessionData.filesTouched);
     return session;
   }
@@ -134,7 +130,7 @@ export class SessionManager {
     logger.info(`会话结束: ${sessionData.projectName}_${sessionData.id} (${sessionData.durationMinutes}分钟)`);
 
     if (sessionData.filesTouched && sessionData.filesTouched.length > 0) {
-      logger.info(`  文件变更 (${sessionData.fileChanges}次):`);
+      logger.info(`  修改文件 (${sessionData.filesTouched.length}个):`);
       sessionData.filesTouched.forEach((file, index) => {
         logger.info(`    ${index + 1}. ${file}`);
       });
