@@ -29,7 +29,7 @@ npm install -g code-time-monitor
 ### 初始化
 ```bash
 # 首次使用会自动引导配置
-ctm start
+ctm service start
 ```
 
 ### 基本使用
@@ -51,7 +51,7 @@ ctm show sessions
 
 ### 服务管理
 
-#### 一键启动
+#### 启动服务
 ```bash
 ctm start
 ```
@@ -115,13 +115,16 @@ ctm show sessions --date 2026-03-18
 
 # 简化显示（不显示文件列表）
 ctm show sessions --simple
+
+# 查看当前活跃会话
+ctm show sessions --current
 ```
 
 会话详情包括：
 - 会话ID（语义化格式）
 - 开始和结束时间
 - 编码时长
-- 文件变更次数
+- 修改文件数
 - 涉及的文件列表
 
 ### 配置管理
@@ -171,14 +174,14 @@ ctm --version
 ## ⚙️ 配置说明
 
 ### 配置文件位置
-`data/config.json`
+`~/.ctm/data/config.json`
 
 ### 全局配置示例
 ```json
 {
-  "version": "2.0.0",
+  "version": "1.0.0",
   "monitoring": {
-    "idleTimeout": 1800,
+    "idleTimeout": 900,
     "debounceDelay": 1000,
     "useBlacklist": true,
     "fileExtensions": [
@@ -187,13 +190,13 @@ ctm --version
       ".css", ".scss", ".less", ".html", ".json", ".md"
     ],
     "ignoredDirs": [
-      "node_modules", ".git", "dist", "build", "coverage", "logs", ".idea"
+      "node_modules", ".git", "dist", "build", "coverage", "tmp", "temp"
     ]
   },
   "limits": {
-    "dailyWarning": 4,
-    "dailyAlert": 6,
-    "dailyMax": 8
+    "dailyWarning": 2,
+    "dailyAlert": 4,
+    "dailyMax": 6
   },
   "nightMode": {
     "enabled": true,
@@ -257,14 +260,14 @@ ctm --version
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `idleTimeout` | 空闲超时时间（秒） | 1800 (30分钟) |
+| `idleTimeout` | 空闲超时时间（秒） | 900 (15分钟) |
 | `debounceDelay` | 文件变更防抖延迟（毫秒） | 1000 |
 | `useBlacklist` | 是否使用黑名单模式 | true |
 | `fileExtensions` | 监控的文件扩展名 | [js, ts, jsx, tsx, vue, svelte, py, java, go, rs, cpp, h, c, css, scss, less, html, json, md] |
-| `ignoredDirs` | 忽略的目录 | [node_modules, .git, dist, build, coverage, logs, .idea] |
-| `dailyWarning` | 每日轻度提醒时长（小时） | 4 |
-| `dailyAlert` | 每日中度提醒时长（小时） | 6 |
-| `dailyMax` | 每日最大提醒时长（小时） | 8 |
+| `ignoredDirs` | 忽略的目录 | [node_modules, .git, dist, build, coverage, tmp, temp] |
+| `dailyWarning` | 每日轻度提醒时长（小时） | 2 |
+| `dailyAlert` | 每日中度提醒时长（小时） | 4 |
+| `dailyMax` | 每日最大提醒时长（小时） | 6 |
 
 ## 📊 统计数据
 
@@ -289,15 +292,15 @@ ctm show sessions
 - 会话ID：`项目名_20260318123456_abc12345`
 - 时间范围：开始时间 - 结束时间
 - 编码时长
-- 文件变更次数
+- 修改文件数
 - 涉及文件列表（最多显示10个）
 
 ### 活跃会话状态
 每1分钟自动记录活跃会话状态到日志：
 ```
 活跃会话状态: 2个活跃会话
-  • myproject_20260318123456_abc12345: 进行中 45分钟 (空闲 2分钟, 变更 12次)
-  • anotherproj_20260318123652_def67890: 进行中 30分钟 (空闲 0分钟, 变更 8次)
+  • myproject_20260318123456_abc12345: 进行中 45分钟 (距上次操作 2分钟, 修改 3个文件)
+  • anotherproj_20260318123652_def67890: 进行中 30分钟 (距上次操作 0分钟, 修改 2个文件)
 ```
 
 ## 🔔 通知系统
@@ -311,9 +314,9 @@ ctm show sessions
 - 活跃会话数
 
 #### 2. 每日时长提醒
-- **4小时** - 轻度提醒："今日已编码 4小时，注意休息"
-- **6小时** - 中度警告："今日已编码 6小时，建议休息"
-- **8小时** - 严重警告："今日已编码 8小时，建议停止工作"
+- **2小时** - 轻度提醒："今日已编码 2小时，注意休息"
+- **4小时** - 中度警告："今日已编码 4小时，建议休息"
+- **6小时** - 严重警告："今日已编码 6小时，建议停止工作"
 
 #### 3. 深夜编码提醒
 在 23:00-07:00 期间，每30分钟提醒：
@@ -327,7 +330,7 @@ ctm show sessions
 会话结束时显示：
 - 项目名称和会话ID
 - 本次编码时长
-- 文件变更次数
+- 修改文件数
 - 涉及的文件列表
 
 ## 🛠️ 技术架构
@@ -407,7 +410,7 @@ code-time-monitor/
 ctm show status
 
 # 查看错误日志
-tail -f logs/error.log
+tail -f ~/.ctm/logs/error.log
 
 # 重启服务
 ctm restart
@@ -459,6 +462,16 @@ ctm reset
 
 ## 📝 更新日志
 
+### 5.0.0 (2026-03-23)
+- ✨ 优化统计逻辑，显示修改文件数而非变更次数
+- ✨ 新增活跃会话详情查看命令 `ctm show sessions --current`
+- ✨ 优化日志格式，"距上次操作"更清晰
+- ✨ 当日累计编码超过2小时时添加"做个人吧"提示
+- 🔧 调整空闲超时时间为15分钟
+- 🔧 修复全局安装后日志路径问题
+- 🔧 修复数据一致性问题，增加服务状态验证
+- 🔧 使用原子写入避免数据损坏
+
 ### 2.0.0 (2026-03-18)
 - ✨ 新增实时统计功能
 - ✨ 新增会话详情查看命令
@@ -467,7 +480,6 @@ ctm reset
 - ✨ 新增黑名单模式和 .gitignore 支持
 - ✨ 重构命令结构，使用子命令
 - 🔧 优化日志，添加时间戳
-- 🔧 增加空闲超时到30分钟
 - 🔧 扩展监控范围，支持 .md 和 .json
 
 ## ⚠️ 注意事项

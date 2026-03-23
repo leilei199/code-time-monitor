@@ -2,9 +2,9 @@ export const DEFAULT_CONFIG = {
   version: '1.0.0',
   projects: [],
   limits: {
-    dailyWarning: 4,
-    dailyAlert: 6,
-    dailyMax: 8
+    dailyWarning: 2,
+    dailyAlert: 4,
+    dailyMax: 6
   },
   nightMode: {
     enabled: true,
