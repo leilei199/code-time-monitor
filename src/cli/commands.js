@@ -265,6 +265,10 @@ export class CLICommands {
       console.log(this.statsReport.formatTodaySummary(summary));
       title = '今日编码统计';
       message = `今日编码时长: ${this.formatTime(summary.totalMinutes)}`;
+      // 当日累计总编码时长超过2小时时，添加提示
+      if (summary.totalMinutes >= 120) {
+        message += '\n💡 提示: 做个人吧';
+      }
     } else if (options.week) {
       summary = await this.statsAnalyzer.getWeekSummary(activeSessions);
       console.log(this.statsReport.formatWeekSummary(summary));
@@ -280,6 +284,10 @@ export class CLICommands {
       console.log(this.statsReport.formatTodaySummary(summary));
       title = '今日编码统计';
       message = `今日编码时长: ${this.formatTime(summary.totalMinutes)}`;
+      // 当日累计总编码时长超过2小时时，添加提示
+      if (summary.totalMinutes >= 120) {
+        message += '\n💡 提示: 做个人吧';
+      }
     }
 
     // 发送通知

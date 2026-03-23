@@ -5,6 +5,11 @@ import os from 'os';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 用户主目录下的 .ctm 目录，用于存储所有数据（配置、统计、日志等）
+export const getCtmHomeDir = () => {
+  return path.join(os.homedir(), '.ctm');
+};
+
 export const getProjectRoot = () => {
   // 使用 package.json 的位置作为包根目录
   return path.resolve(__dirname, '../..');
@@ -30,7 +35,7 @@ export const getPackageRoot = () => {
 };
 
 export const getDataDir = () => {
-  return path.join(getPackageRoot(), 'data');
+  return path.join(getCtmHomeDir(), 'data');
 };
 
 export const getConfigPath = () => {
@@ -42,7 +47,7 @@ export const getStatsPath = () => {
 };
 
 export const getLogDir = () => {
-  return path.join(getPackageRoot(), 'logs');
+  return path.join(getCtmHomeDir(), 'logs');
 };
 
 export const getTemplatesDir = () => {

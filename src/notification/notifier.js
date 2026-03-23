@@ -71,9 +71,10 @@ export class NotificationSystem {
   }
 
   notifySessionEnd(session) {
+    const filesCount = session.filesTouched ? session.filesTouched.length : 0;
     this.notify(
       '编码会话结束',
-      `${session.projectName}: 本次编码 ${this.formatTime(session.durationMinutes)}，修改了 ${session.fileChanges} 个文件`
+      `${session.projectName}: 本次编码 ${this.formatTime(session.durationMinutes)}，修改了 ${filesCount} 个文件`
     );
   }
 

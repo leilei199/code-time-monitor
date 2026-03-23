@@ -24,6 +24,11 @@ export class StatsReport {
       }
     }
     
+    // 当日累计总编码时长超过2小时时，添加提示
+    if (summary.totalMinutes >= 120) {
+      lines.push('\n💡 提示: 做个人吧');
+    }
+    
     lines.push('');
     
     return lines.join('\n');
