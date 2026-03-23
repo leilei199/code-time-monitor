@@ -12,30 +12,7 @@ program
   .description('编码时间监控工具 - 帮助开发者管理编码时间')
   .version('2.0.0');
 
-// ========== 向后兼容的旧命令 ==========
-
-const oldCommands = [
-  { name: 'status', newCmd: 'ctm show status', action: 'status' },
-  { name: 'add-project', newCmd: 'ctm config add', action: 'addProject' },
-  { name: 'reset-stats', newCmd: 'ctm data reset', action: 'resetStats' }
-];
-
-for (const cmd of oldCommands) {
-  const cmdObj = program.command(cmd.name);
-  cmdObj.description(''); // 空描述
-  cmdObj._hidden = true; // 设置为隐藏
-  cmdObj.action(async () => {
-    console.log(`\n⚠️  该命令已废弃，请使用: ${cmd.newCmd}\n`);
-    try {
-      await commands[cmd.action]();
-    } catch (error) {
-      logger.error('命令执行失败:', error.message);
-      process.exit(1);
-    }
-  });
-}
-
-// ========== 新的命令结构 ==========
+// ========== 命令结构 ==========
 
 // ctm start - 一键启动监控服务
 program
@@ -83,32 +60,6 @@ program
   .action(async () => {
     try {
       await commands.logs();
-    } catch (error) {
-      logger.error('命令执行失败:', error.message);
-      process.exit(1);
-    }
-  });
-
-// ctm startup - 设置开机自启动
-program
-  .command('startup')
-  .description('设置开机自启动')
-  .action(async () => {
-    try {
-      await commands.startup();
-    } catch (error) {
-      logger.error('命令执行失败:', error.message);
-      process.exit(1);
-    }
-  });
-
-// ctm delete - 删除监控服务
-program
-  .command('delete')
-  .description('删除监控服务')
-  .action(async () => {
-    try {
-      await commands.delete();
     } catch (error) {
       logger.error('命令执行失败:', error.message);
       process.exit(1);
@@ -169,11 +120,11 @@ const configCmd = program
   .description('配置管理');
 
 configCmd
-  .command('show')
-  .description('显示当前配置')
+  .command('add')
+  .description('添加监控项目')
   .action(async () => {
     try {
-      await commands.config('show');
+      await commands.addProject();
     } catch (error) {
       logger.error('命令执行失败:', error.message);
       process.exit(1);
@@ -186,30 +137,6 @@ configCmd
   .action(async () => {
     try {
       await commands.config('edit');
-    } catch (error) {
-      logger.error('命令执行失败:', error.message);
-      process.exit(1);
-    }
-  });
-
-configCmd
-  .command('reset')
-  .description('重置为默认配置')
-  .action(async () => {
-    try {
-      await commands.config('reset');
-    } catch (error) {
-      logger.error('命令执行失败:', error.message);
-      process.exit(1);
-    }
-  });
-
-configCmd
-  .command('add')
-  .description('添加监控项目')
-  .action(async () => {
-    try {
-      await commands.addProject();
     } catch (error) {
       logger.error('命令执行失败:', error.message);
       process.exit(1);
@@ -240,19 +167,6 @@ program
   .action(async () => {
     try {
       await commands.purgeAll();
-    } catch (error) {
-      logger.error('命令执行失败:', error.message);
-      process.exit(1);
-    }
-  });
-
-// ctm version - 查看版本
-program
-  .command('version')
-  .description('查看版本号')
-  .action(async () => {
-    try {
-      await commands.version();
     } catch (error) {
       logger.error('命令执行失败:', error.message);
       process.exit(1);

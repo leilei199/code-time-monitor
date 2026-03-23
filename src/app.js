@@ -7,6 +7,7 @@ import { EnhancedNotificationSystem } from './notification/enhanced-notifier.js'
 import { NotificationRules } from './notification/rules.js';
 import { NotificationQueue } from './notification/queue.js';
 import { StatsAnalyzer } from './stats/analyzer.js';
+import { LogCleaner } from './utils/log-cleaner.js';
 import logger from './utils/logger.js';
 import dayjs from 'dayjs';
 
@@ -21,6 +22,7 @@ class CodeTimeMonitorApp {
     this.notificationRules = null;
     this.notificationQueue = null;
     this.statsAnalyzer = null;
+    this.logCleaner = null;
     this.isRunning = false;
   }
 
@@ -47,6 +49,7 @@ class CodeTimeMonitorApp {
       this.notificationRules = new NotificationRules(config, this.persistence);
       this.notificationQueue = new NotificationQueue(this.notificationSystem);
       this.statsAnalyzer = new StatsAnalyzer(this.persistence);
+      this.logCleaner = new LogCleaner(config);
       
       // 每日时长提醒已合并至整点推送，无需独立状态播报
       
@@ -88,6 +91,9 @@ class CodeTimeMonitorApp {
       this.activeSessionsLogInterval = setInterval(() => {
         this.logActiveSessionsStatus();
       }, 1 * 60 * 1000);
+      
+      // 启动日志清理任务
+      this.logCleaner.start();
       
       // 立即保存一次活跃会话信息
       this.saveActiveSessionsToFile();
@@ -144,6 +150,11 @@ class CodeTimeMonitorApp {
       // 停止状态更新
       if (this.notificationSystem) {
         this.notificationSystem.cleanup();
+      }
+      
+      // 停止日志清理任务
+      if (this.logCleaner) {
+        this.logCleaner.stop();
       }
       
       // 保存缓存数据

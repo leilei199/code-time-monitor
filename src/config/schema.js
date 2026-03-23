@@ -31,12 +31,17 @@ export const DEFAULT_CONFIG = {
   notifications: {
     enabled: true,
     sound: true
+  },
+  logCleanup: {
+    enabled: true,
+    keepDays: 7,
+    maxSizeMB: 100
   }
 };
 
 export const CONFIG_SCHEMA = {
   type: 'object',
-  required: ['version', 'projects', 'limits', 'nightMode', 'breakReminder', 'monitoring', 'notifications'],
+  required: ['version', 'projects', 'limits', 'nightMode', 'breakReminder', 'monitoring', 'notifications', 'logCleanup'],
   properties: {
     version: { type: 'string' },
     projects: {
@@ -97,6 +102,15 @@ export const CONFIG_SCHEMA = {
       properties: {
         enabled: { type: 'boolean' },
         sound: { type: 'boolean' }
+      }
+    },
+    logCleanup: {
+      type: 'object',
+      required: ['enabled', 'keepDays', 'maxSizeMB'],
+      properties: {
+        enabled: { type: 'boolean' },
+        keepDays: { type: 'number', minimum: 1 },
+        maxSizeMB: { type: 'number', minimum: 10 }
       }
     }
   }

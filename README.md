@@ -75,16 +75,6 @@ ctm logs
 ```
 实时查看服务日志（按 Ctrl+C 退出）
 
-#### 开机自启
-```bash
-ctm startup
-```
-
-#### 删除服务
-```bash
-ctm delete
-```
-
 ### 状态和统计
 
 #### 查看运行状态
@@ -145,22 +135,11 @@ ctm config add
 - 项目路径
 - 是否使用 .gitignore
 
-#### 查看配置
-```bash
-ctm config show
-```
-
 #### 编辑配置
 ```bash
 ctm config edit
 ```
 在默认编辑器中打开配置文件
-
-#### 重置配置
-```bash
-ctm config reset
-```
-恢复为默认配置
 
 ### 数据管理
 
@@ -186,14 +165,8 @@ ctm reset
 
 #### 查看版本
 ```bash
-ctm version
+ctm --version
 ```
-
-### 已废弃的命令
-以下命令已废弃，但仍然可以使用（会提示新命令）：
-- `ctm status` → `ctm show status`
-- `ctm add-project` → `ctm config add`
-- `ctm reset-stats` → `ctm data reset`
 
 ## ⚙️ 配置说明
 
