@@ -8,9 +8,6 @@ export class Persistence {
   constructor(configManager) {
     this.configManager = configManager;
     this.statsPath = getStatsPath();
-    this.cache = new Map();
-    this.saveTimer = null;
-    this.saveInterval = 10 * 60 * 1000; // 10分钟
   }
 
   async loadStats() {
@@ -91,31 +88,10 @@ export class Persistence {
     // 更新时间戳
     stats.lastUpdated = new Date().toISOString();
     
-    // 缓存数据
-    this.cache.set('stats', stats);
-    
-    // 延迟保存
-    this.scheduleSave();
+    // 立即落盘，避免缓存导致数据丢失
+    await this.writeStats(stats);
     
     return stats;
-  }
-
-  scheduleSave() {
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
-    }
-    
-    this.saveTimer = setTimeout(async () => {
-      await this.flushCache();
-    }, this.saveInterval);
-  }
-
-  async flushCache() {
-    if (this.cache.has('stats')) {
-      const stats = this.cache.get('stats');
-      await this.writeStats(stats);
-      this.cache.delete('stats');
-    }
   }
 
   async writeStats(stats) {
@@ -252,11 +228,7 @@ export class Persistence {
   }
 
   async shutdown() {
-    await this.flushCache();
-    
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
-    }
+    // 已改为立即落盘，无需刷新缓存
   }
 }
 
